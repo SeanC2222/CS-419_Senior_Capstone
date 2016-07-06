@@ -1,0 +1,131 @@
+#!/bin/bash
+
+# Author: Sean C. Mulholland
+# Date: 7/5/16
+# Description: Script to simplify command line build process for
+#       CS capstone project
+
+#######              Usages:                 #######
+#
+# Full build of both client and server
+#   ./makeGame
+#
+# Full build of server or client
+#   ./makeGame <server | client >
+#
+#   e.g.
+#       ./makeGame server
+#
+#
+# Partial build of server client
+#   ./makeGame <server | client> <target>
+#
+#   e.g.
+#       ./makeGame server inetLib.o
+#
+#
+# Full build of server or client and partial build of other
+#   ./makeGame <server | client> <target> <server | client>
+#
+#   e.g.
+#       ./makeGame server inetLib.o client
+#
+#
+# Partial build of both server and client
+#   ./makeGame <server | client> <target> <server | client> target
+#
+#   e.g.
+#       ./makeGame server inetLib.o client inetLib.o
+#
+#
+#######                                       #######
+
+NumArg=$#
+
+if [ $NumArg -eq 0 ]; then
+    cd Server
+    make
+    cd ..
+
+    cd Client
+    make
+    cd ..
+elif [ $NumArg -eq 1 ]; then
+    if [ $1 == "server" ]; then
+        cd Server
+        make
+        cd ..
+    elif [ $1 == "client" ]; then
+        cd Client
+        make
+        cd ..
+    elif [ $1 == "clean" ]; then
+        cd Server
+        make clean
+        cd ..
+        cd Client
+        make clean
+        cd ..
+    fi
+elif [ $NumArg -eq 2 ]; then
+    if [ $1 == "server" ]; then
+        cd Server
+        make $2
+        cd ..
+    elif [ $1 == "client" ]; then
+        cd Client
+        make $2
+        cd ..
+    fi
+elif [ $NumArg -eq 3 ]; then
+    if [ $1 == "server" ]; then
+        cd Server
+        make $2
+        cd ..
+        if [ $3 == "client" ]; then
+            cd Client
+            make
+            cd ..
+        else
+            echo "makeGame: Argument 3 unknown"
+        fi
+    elif [ $1 == "client" ]; then
+        cd Client
+        make $2
+        cd ..
+        if [ $3 == "server" ]; then
+            cd Server
+            make
+            cd ..
+        else
+            echo "makeGame: Argument 3 unknown"
+        fi
+    fi
+elif [ $NumArg -eq 4 ]; then
+    if [ $1 == "server" ]; then
+        cd Server
+        make $2
+        cd ..
+        if [ $3 == "client" ]; then
+            cd Client
+            make $4
+            cd ..
+        else
+            echo "makeGame: Argument 3 unknown"
+        fi
+    elif [ $1 == "client" ]; then
+        cd Client
+        make $2
+        cd ..
+        if [ $3 == "server" ]; then
+            cd Server
+            make $4
+            cd ..
+        else
+            echo "makeGame: Argument 3 unknown"
+        fi
+    fi
+else 
+    echo "Usage: [server | client] [argument]"
+fi
+
