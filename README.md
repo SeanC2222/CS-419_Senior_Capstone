@@ -8,5 +8,5 @@
  <h4> Server </h4>
  <p> This is the server that the clients will connect to in order to start a game, and which manages the game. </p>
  
- <h4> Client </hr>
+ <h4> Client </h4>
  <p> This is the actual game client users will run in order to connect to the server and interact with the game </p>
