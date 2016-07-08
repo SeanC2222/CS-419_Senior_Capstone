@@ -15,14 +15,18 @@ int main(int argc, char* argv[]){
     inetSock cliSock("localhost", "52010", argv[1]);
     
     //Create fake JSON style message, and c-string
-    std::string message = "{\"message\": \"Hello World\"}";
-    const char* cstr = "This is a test c-string!";
+    std::string message;
     
+    if(argc >= 3){
+        message = argv[2];
+    } else {
+        message = "This is a test message from port ";
+        message += argv[1];
+    }
     //If cliSock is open (i.e. connected)
     if(cliSock.isOpen()){
         //Write messages to socket
         cliSock.writeToSock(message, message.size());
-        cliSock.writeToSock(cstr, 512);
         return 0;
     } else {
         return -1;

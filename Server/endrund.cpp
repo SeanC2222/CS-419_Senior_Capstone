@@ -3,20 +3,120 @@
 #include "signal.h"     //Handle Signals 
 #include "fcntl.h"      //File control
 #include "sys/wait.h"   //Wait for processes
+#include "sys/types.h"  //pid_t
+#include "sys/stat.h"   
+#include "string.h"
 //C++ Libraries
 #include <iostream>     //IO Handling
+#include <fstream>
 #include <vector>       //Data Container
 #include <string>       //Input Container
 
 //Custom Libraries
 #include "../inetLib/inetLib.hpp"
 
+//Definitions
+#define DEFAULT_PORT "52010"
+
+//Parses Command Line Arguments
+std::vector<std::string> getArgs(int, char**);
+//Starts Server
+int buildServer(std::string);
 //Main Server Game Loop
 void playGame(std::pair<int,int>);
 
-int main(){
-    //Create socket to listen on
-    inetSock servSock("52010");
+int main(int argc, char* argv[]){
+    
+    //Default
+    int status = chdir("/home/ubuntu/workspace");
+
+    std::vector<std::string> args = getArgs(argc, argv);
+    
+    std::string portno = DEFAULT_PORT;
+    for(unsigned int i = 0; i < args.size(); i++){
+        if(args[i] == "--shutdown"){
+            std::cout << "endrund: Shutting down current daemon" << std::endl;
+            std::ifstream pidLog("logs/endrund/endrund.pid", std::ifstream::in);
+            pid_t currentPID;
+            pidLog >> currentPID;
+            pidLog.close();
+
+            if(currentPID){
+                int status = kill(currentPID, SIGTERM);
+                if(status){
+                    std::cout << "endrund: Could not shut down daemon" << std::endl;
+                    return -1;
+                } else {
+                    std::cout << "endrund: Daemon shutdown successfully" << std::endl;
+                    std::remove("logs/endrund/endrund.pid");
+                    return 0;
+                }
+            } else {
+                std::cout << "endrund: Could not retrieve current PID, corrupt logs" << std::endl;
+                return -1;
+            }
+        } else if (args[i] == "--port"){
+            i++;
+            if (i >= args.size()){
+                std::cerr << "endrund: No port number specified";
+            } else {
+                std::cout << "endrund: Selected Port " << args[i] << std::endl;
+                portno = args[i];
+            }
+        } else {
+            std::cerr << "endrund: Invalid argument \"" << args[i] << "\"" << std::endl;
+        }
+    }
+    std::cout << "endrund: Starting daemon on port " << portno << std::endl;
+    pid_t pid = fork();
+    bool child = (pid == 0) ? true : false;
+
+    if(child){
+
+        std::ofstream logs("logs/endrund/endrundlog.txt", std::ofstream::out | std::ofstream::app);
+        umask(0);
+        pid_t sid = setsid();
+        if(sid < 0){
+            logs << "endrund: Unable to create new SID for daemon." << std::endl;
+            exit(-1);
+        }
+        close(STDIN_FILENO);
+        
+        std::streambuf *coutbuf = std::cout.rdbuf();
+        std::cout.rdbuf(logs.rdbuf());
+        std::streambuf *cerrbuf = std::cerr.rdbuf();
+        std::cerr.rdbuf(logs.rdbuf());
+        
+        buildServer(portno);
+        exit(0);
+    } else {
+        if(pid < 0){
+            std::cerr << "endrund: Daemon startup unsuccessful" << std::endl;
+        } else {
+            std::cout << "endrund: Daemon started as PID: " << pid << std::endl;
+            std::ofstream pidLog("logs/endrund/endrund.pid", std::ofstream::out);
+            pidLog << pid << std::endl;
+            pidLog.close();
+        }
+    }
+    return 0;
+}
+
+std::vector<std::string> getArgs(int argc, char* argv[]){
+    std::vector<std::string> args;
+    for(int i = 1; i < argc; i++){
+        if(std::string(argv[i]) == "--shutdown"){
+            args.insert(args.begin(), argv[i]);
+        } else {
+            args.push_back(argv[i]);
+        }
+    }
+    return args;
+}
+
+int buildServer(std::string portno){
+    //Create socket to listen on; Port currently arbitrary
+    inetSock servSock(portno);
     
     //Listen on open file descriptor, accept up to 10 connections
     listen(servSock.getFileDescriptor(), 10);
@@ -26,13 +126,12 @@ int main(){
     //Game, and gamePID tracking
     std::vector< std::pair<int,int> > games;
     std::vector<int> gamePID;
-    
-    //Temporary players pair
+        //Temporary players pair
     std::pair<int,int> players;
-    
-    //Keeps count of current total players
+        //Keeps count of current total players
     int playerCount = 0;
     
+    //Server Loop
     while(1){
         //Accept a connection if available
         int fd = accept(servSock.getFileDescriptor(), NULL, NULL);
@@ -96,10 +195,13 @@ void playGame(std::pair<int,int> player) {
 
     //Simple test once two players are connected to see if server can read
     std::cout << "Server: Testing " << player.first << " read..." << std::endl;
-    std::cout << "Player 1: " << player1.readFromSock(512) << std::endl;
+    std::string play1Msg = player1.readFromSock(512);
+    std::cout << "Server: Read from player1 - " << play1Msg << std::endl;
+    player2.writeToSock(play1Msg, play1Msg.size());
     
     std::cout << "Server: Testing " << player.second << " read..." << std::endl;
-    std::cout << "Player 2: " << player2.readFromSock(512) << std::endl;
-    
+    std::string play2Msg = player2.readFromSock(512);
+    std::cout << "Server: Read from player2 - " << play2Msg << std::endl;
+    player1.writeToSock(play2Msg, play2Msg.size());
     
 }

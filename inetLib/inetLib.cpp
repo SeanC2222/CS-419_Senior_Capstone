@@ -186,6 +186,15 @@ inetSock::inetSock(const char* portno){
    _getAddressInfo(portno);
    _bindSocket(portno);
 }
+inetSock::inetSock(const std::string portno){
+   memset(&this->hints, 0, sizeof(struct addrinfo));
+      hints.ai_family = AF_INET;
+      hints.ai_socktype = SOCK_STREAM;
+      hints.ai_flags = AI_PASSIVE;
+  
+   _getAddressInfo(portno.c_str());
+   _bindSocket(portno.c_str());
+}
 
 //Connecting Port Specific Constructor
 inetSock::inetSock(const char* destHost, const char* destPort, const char* portno){
@@ -195,7 +204,13 @@ inetSock::inetSock(const char* destHost, const char* destPort, const char* portn
    _getAddressInfo(destHost, destPort);
    _connectSocket(destHost, destPort);
 }
-
+inetSock::inetSock(const std::string destHost, const std::string destPort, const std::string portno){
+   memset(&this->hints, 0, sizeof(struct addrinfo));
+      hints.ai_family = AF_INET;
+      hints.ai_socktype = SOCK_STREAM;
+   _getAddressInfo(destHost.c_str(), destPort.c_str());
+   _connectSocket(destHost.c_str(), destPort.c_str());
+}
 //FD Wrapper for Read Operations
 inetSock::inetSock(int openFD){
    memset(this, 0, sizeof(inetSock));

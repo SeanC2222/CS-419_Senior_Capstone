@@ -35,26 +35,15 @@ HDR9 =
 
 HDRS = ${HDR1}
 
-OBJ1 = endrund.o
-OBJ2 = inetLib.o
-OBJ3 = 
-OBJ4 = 
-OBJ5 = 
-OBJ6 = 
-OBJ7 = 
-OBJ8 = 
-OBJ9 = 
-OBJS = ${OBJ1} ${OBJ2}
-
 PROG = endrund
 
 all: ${PROG}
 
-${OBJS}: ${SRCS} ${HDRS}
+OBJS: ${SRCS} ${HDRS}
 	${CXX} ${CXXFLAGS} ${SRCS} -c $(@.o=.cpp)
 	
-${PROG}: ${OBJS}
-	${CXX} ${CXXFLAGS} ${OBJS} ${HDRS} -o ${PROG}
+${PROG}: OBJS
+	${CXX} ${CXXFLAGS} *.o ${HDRS} -o ${PROG}
 
 clean:
 	rm -f  *.o *~ *.gch  ${PROG}

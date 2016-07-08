@@ -39,8 +39,10 @@ public:
    inetSock(const inetSock&);
    //Listening Socket constructor
    inetSock(const char*);
+   inetSock(const std::string);
    //Connecting Socket constructor
    inetSock(const char*, const char*,const char*);
+   inetSock(const std::string, const std::string,const std::string);
    //FD Wrapper for Read Operations
    inetSock(int);
    //Copy Operator

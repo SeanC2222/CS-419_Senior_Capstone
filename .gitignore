@@ -1,6 +1,8 @@
 # Compiled Files
 *.o
 *.gch
+*.txt
+*.pid
 endrund
 endrun
 
