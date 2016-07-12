@@ -1,5 +1,6 @@
 #include "screen.hpp"
 
+#include <iostream>
 
 void Screen::init()
 {
@@ -19,10 +20,9 @@ void Screen::init()
 
     cbreak();                   // Don't wait for user to hit 'enter'
     noecho();                   // Don't display user input on screen
-    curs_set(0);                // Make the cursor invisible --Doesn't work :(
     keypad(stdscr, TRUE);       // For getting arrow keys
     this->bgWindow = Window::getBackground(1);   // Get the first level's background and set it to panel level 0
-                                                            printf("\nAdding the Background Image:\n");
+                                                            std::cout << "\nAdding the Background Image:\n";
     addToPanelLevel(this->bgWindow);
     this->level = 1;
     
@@ -36,6 +36,9 @@ void Screen::init()
 */   
 void Screen::update()
 {
+       //wnoutrefresh( this->bgWindow->getTop());                        // Supposedly more efficient to do this for all windows then call doupdate(), 
+                                                        // but we'd have to keep track of all the windows in this class
+
     // Scroll the background here
     // Check for input and timeout and doUpdate() if none entered
         //halfdelay(x/10 seconds --probably needs to be an init function somewhere else)
@@ -45,7 +48,7 @@ void Screen::update()
 
 void Screen::addToPanelLevel(Window* image)      // There is also a user pointer for each panel I think...used to store anything if we need it
 {
-                                                        printf("\nAdding Panel Index #%i to the window\n", panelLevel.size() );
+                                                                    std::cout << "\nAdding Panel Index #" << (int)panelLevel.size() <<" to the window" << std::endl;
     image->setPanelIndex( panelLevel.size() );
     this->panelLevel.push_back( new_panel(image->getTop()) );
     update_panels();
@@ -57,15 +60,14 @@ void Screen::addToPanelLevel(Window* image)      // There is also a user pointer
 Window* Screen::loadImages(vector<string> filenames, int xPos, int yPos)
 {
     Window* baseWindow = new Window(filenames[0], xPos, yPos);
-    
-                                                        printf("\nAdding %s to panel#%i", filenames[0], panelLevel.size());
-    baseWindow->setPanelIndex(panelLevel.size() );
+                                                                    std::cout << "\nAdding " << filenames[0] << " to panel#" << panelLevel.size() << std::endl;
+    baseWindow->setPanelIndex( panelLevel.size() );                  // Noting the Index of the panel location in the Window class
     this->panelLevel.push_back( new_panel(baseWindow->getTop()) );
     
     // For multiple files (only happens for animations)
     for(unsigned int i = 1; i < filenames.size(); i++) 
     {
-                                                        printf("\nAdding %s to panel#%i", filenames[i], panelLevel.size());
+                                                                    std::cout << "\nAdding " << filenames[i] << " to panel#" << panelLevel.size() << std::endl;
         WINDOW* nextImage = baseWindow->appendAnimation( filenames[i] );
         this->panelLevel.push_back( new_panel(nextImage) );  // Add all the other screen 
     }
@@ -85,17 +87,12 @@ void Screen::move(std::string direction, Window* baseWindow)
     // If it does, make the current image hidden, make the next image visible and change the top Window
     if(baseWindow->isAnimated())
     {
-int oldPanelIndex = baseWindow->getPanelIndex();   
-mvwprintw(bgWindow->getTop(), 0, 0, "Old Panel Index: %i", oldPanelIndex  );
+        int topPanelIndex = baseWindow->getPanelIndex();   
 
-        
-        hide_panel( panelLevel[ oldPanelIndex ] );                // Hide the top window
-        baseWindow->rotate();                                                   // Changes the top window
-
-oldPanelIndex = baseWindow->getPanelIndex();   
-mvwprintw(bgWindow->getTop(), 3, 3, "New Panel Index: %i", oldPanelIndex  );
-
-        show_panel( panelLevel[ oldPanelIndex ] );                //  Shows the (new) top window
+        hide_panel( panelLevel[ topPanelIndex ] );                              // Hide the top window
+        baseWindow->rotate();                                                   // Changes the top window index
+        topPanelIndex = baseWindow->getPanelIndex();                        
+        show_panel( panelLevel[ topPanelIndex ] );                //  Shows the (new) top window
     }
 
     int xPos = baseWindow->getX();

@@ -7,19 +7,19 @@
 Window::Window(int height, int width, int xStart, int yStart) : height(height), width(width), x(xStart), y(yStart)
 {
     this->win.push_back( newwin(height, width, x, y) );
-    this->nextIdx = this->currentIdx = 0;
+    this->nextWindowIndex = this->currentWindowIndex = 0;
     this->top = this->win[0];
 }
 
 /* Creates a new window with the text from a file.
  * 
- * For the color thing...pass in a COLOR_PAIR ? or do we build these things with 
- * two colors (first and last char in a row and col is black for an outline maybe) or what?
+                                    * For the color thing...pass in a COLOR_PAIR ? or do we build these things with 
+                                    * two colors (first and last char in a row and col is black for an outline maybe) or what?
  */
 Window::Window(string filename, int xStart, int yStart) : x(xStart), y(yStart)
 {
-    this->win.push_back( getWinFromFile(filename, xStart, yStart, COLOR_PAIR(1)) );
-    this->nextIdx = this->currentIdx = 0;
+    this->win.push_back( getWinFromFile(filename, xStart, yStart, COLOR_PAIR(2)) );
+    this->nextWindowIndex = this->currentWindowIndex = 0;
     this->top = this->win[0];
 }
 
@@ -28,7 +28,8 @@ Window::Window(string filename, int xStart, int yStart) : x(xStart), y(yStart)
 WINDOW* Window::appendAnimation(string filename)
 {
     WINDOW* frame = getWinFromFile(filename, this->x, this->y, (COLOR_PAIR(2)));
-    this->nextIdx = 1;          // This will only be called during initialization, so the "first" next index will always be 1
+    this->win.push_back(frame);
+    this->nextWindowIndex = 1;          // This will only be called during initialization, so the "first" next index will always be 1
     return frame;
 }
 
@@ -56,6 +57,7 @@ Window* Window::getBackground(int level)
         case 1:
         {
             WINDOW* bgWin = bg->getTop();
+            wbkgd(bgWin, COLOR_PAIR(1));
             int grassValue = 5;                         // The amount of grass on each line
             wattron(bgWin, COLOR_PAIR(1));
             for(int i = 0; i < rows; i++)
@@ -72,8 +74,6 @@ Window* Window::getBackground(int level)
             cerr << "No Background Level Selected";
             exit(1);
     }
-    //wbkgd(bg->getTop(), COLOR_PAIR(1));
-    //wrefresh(bg->getTop());
     return bg;
 }
 
@@ -82,7 +82,14 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
     string path = "./Images/" + filename;
     ifstream inputFile;
     inputFile.open(path);
-    if(inputFile.is_open())
+    
+    if(!inputFile.is_open())
+    {
+       cerr << "Couldn't open file: " << path;
+       exit(1);
+    }
+    
+    else
     {
         string line;
         int screenXSize, screenYSize;
@@ -101,52 +108,45 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
             cerr << "The contents of the file <" << filename << "> are too large to fit on the screen.";
             exit(1);
         }
-        else
-            this->win.push_back( newwin(rows, cols, xStart, yStart) );
+        
+        WINDOW* windowFromFile = newwin(rows, cols, xStart, yStart);
         
         inputFile.clear();               // "Unlocks" the file for processing after reaching EOF
         inputFile.seekg(0);             // Return to the beginning of the file
         rows=0;
         
-        wbkgd(win[0], colorScheme);        // Fills in the background color where spaces weren't entered 
+        wbkgd(windowFromFile, colorScheme);        // Fills in the background color where spaces weren't entered 
 
-        wattron(win[0], colorScheme);
+        wattron(windowFromFile, colorScheme);
         while( getline(inputFile, line) )        // Get the file and put it in the window
-            mvwprintw(win[0], rows++, 0, line.c_str()); 
-        wattroff(win[0], colorScheme);
+            mvwprintw(windowFromFile, rows++, 0, line.c_str()); 
+        wattroff(windowFromFile, colorScheme);
        
        
 //Don't need these
-        wattron(this->win[0], A_UNDERLINE);
+        wattron(windowFromFile, A_UNDERLINE);
         string bottomJaw = "(^^^";
-        mvwprintw(win[0], 3, 1, "%s", bottomJaw.c_str());
-        wattroff(win[0], A_UNDERLINE);
-        wmove(win[0], 4, 6);
+        mvwprintw(windowFromFile, 3, 1, "%s", bottomJaw.c_str());
+        wattroff(windowFromFile, A_UNDERLINE);
+        wmove(windowFromFile, 4, 6);
 
 
 
-        refresh();
-        wrefresh(this->win[0]);
+        //refresh();
+        //wrefresh(windowFromFile);
+        
+        return windowFromFile;
     }
-   else
-   {
-       cerr << "Couldn't open file: " << path;
-       exit(1);
-   }
-   return win[0];
 }
 
-int Window::rotate()
+void Window::rotate()
 {
-    this->top = win[ this->nextIdx ];
-    this->currentIdx = this->nextIdx;
-    this->nextIdx = ( (unsigned int)(this->nextIdx + 1) == win.size() ? 0 : this->nextIdx + 1 ); 
-    
-    
-    printf("The new Current Panel Idx: %i, NextPanelIndex: %i", currentIdx, nextIdx);
-    
-    
-    return this->currentIdx;
+    this->top = win[ this->nextWindowIndex ];                       // The current top window is now the next window in the array
+    this->currentWindowIndex = this->nextWindowIndex;               // Update the currentWindow Index to reflect that change
+    if((unsigned int)this->nextWindowIndex + 1 >= 2 ) //win.size() , not 2
+        this->nextWindowIndex = 0;                                  // If the next index value would be more than the # of windows in the vector
+    else                                                            // Reset the next window to be the first window in the vector,  otherwise increment
+        this->nextWindowIndex++;
 }
 
 void Window::setPanelIndex(int PanelNum)
@@ -157,7 +157,7 @@ void Window::setPanelIndex(int PanelNum)
 int Window::getPanelIndex()
 {
     if(this->isAnimated())
-        return(this->pIdx + this->currentIdx);
+        return(this->pIdx + this->currentWindowIndex);
     else
         return this->pIdx;
 }

@@ -16,8 +16,9 @@ int main()
     
     Window* wolf = main.loadImages(wolfFiles, 10, 10);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
     main.update();
-    wrefresh(wolf->getTop());
     
+    curs_set(0);                // Make the cursor invisible --Doesn't work :(
+
     wchar_t ch;
     while( (ch =getch() ) != 'q' )
     {
@@ -40,6 +41,7 @@ int main()
         }
         usleep(delay);
         main.update();
+
     }
     main.cleanup();
     endwin();

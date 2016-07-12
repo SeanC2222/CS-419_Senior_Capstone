@@ -14,7 +14,7 @@
 class Screen
 {
      private:
-        std::vector <PANEL*> panelLevel;
+        std::vector<PANEL*> panelLevel;
         std::vector<Window*> movingWindows;
         Window* bgWindow;
         int level;

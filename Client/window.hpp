@@ -15,7 +15,7 @@ class Window
         vector <WINDOW*> win;
         int height, width, x, y, pIdx;  // pIdx is the panel to which the BASE window belongs
                                         // The variables x and y are storing the x and y values of the PANEL in which the window is set
-        int currentIdx, nextIdx;                       // Used to toggle hidden windows to show animations
+        int currentWindowIndex, nextWindowIndex;                       // Used to toggle hidden windows to show animations
         WINDOW* top;                    // Used to track the currently visible window in animations
         WINDOW* getWinFromFile(string filename, int xValue, int yValue, unsigned int colorScheme);
 
@@ -35,7 +35,7 @@ class Window
         WINDOW* appendAnimation(string filename);
         WINDOW* getTop();
         bool isAnimated();
-        int rotate();
+        void rotate();
 
 };
 #endif
