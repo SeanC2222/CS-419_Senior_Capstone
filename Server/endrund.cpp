@@ -121,7 +121,7 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 				std::cout << "endrund: Could not retrieve current PID, corrupt logs" << std::endl;
 				return std::pair<std::string, bool>(args[i], false);
 			}
-		} else if (args[i] == "--port"){
+		} else if (args[i] == "--port" || args[i] == "-p"){
 			i++;
 			if (i >= args.size()){
 				std::cerr << "endrund: No port number specified";
@@ -129,6 +129,16 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 			} else {
 				return std::pair<std::string, bool>(args[i], true);
 			}
+		} else if (args[i] == "--help" || args[i] == "-h") {
+			std::cout << "endrund: Usage:" << std::endl
+					  << "\tDefault: " << std::endl
+					  << "\t\t./endrund " << std::endl 
+					  << "\t\tStarts daemon on port 52010" << std::endl << std::endl
+					  << "\t\t./endrund [-p|--port] [port_number]" << std::endl
+					  << "\t\tStarts daeomon on specified port number" << std::endl << std::endl
+					  << "\t\t./endrund --shutdown" << std::endl
+					  << "\t\tShuts down current daemon process" << std::endl;
+			return std::pair<std::string, bool>("--shutdown", true);
 		} else {
 			std::cerr << "endrund: Invalid argument \"" << args[i] << "\"" << std::endl;
 			return std::pair<std::string, bool>(args[i], false);
