@@ -7,21 +7,18 @@
 
 int main()
 {
-    unsigned int delay = 50000;
+    //unsigned int delay = 50000;       Not sure if we neeed this
     Screen main = Screen();
     main.init();
-    main.update();
 
     vector <string> wolfFiles {"wolfy.txt", "wolfy2.txt" };
-    
     Window* wolf = main.loadImages(wolfFiles, 10, 10);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
-    main.update();
     
-    curs_set(0);                // Make the cursor invisible --Doesn't work :(
+    main.update();
 
     wchar_t ch;
     while( (ch =getch() ) != 'q' )
-    {
+    {  
         switch(ch)
         {
             case KEY_LEFT:
@@ -39,8 +36,7 @@ int main()
             default:
                 mvprintw(1,0, "Use the arrow keys to move your puppy!\n ('q' to quit)");
         }
-        usleep(delay);
-        main.update();
+        //usleep(delay);
 
     }
     main.cleanup();

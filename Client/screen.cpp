@@ -21,6 +21,8 @@ void Screen::init()
     cbreak();                   // Don't wait for user to hit 'enter'
     noecho();                   // Don't display user input on screen
     keypad(stdscr, TRUE);       // For getting arrow keys
+    curs_set(0);                // Make the cursor invisible --Doesn't work :(
+
     this->bgWindow = Window::getBackground(1);   // Get the first level's background and set it to panel level 0
                                                             std::cout << "\nAdding the Background Image:\n";
     addToPanelLevel(this->bgWindow);
@@ -36,9 +38,6 @@ void Screen::init()
 */   
 void Screen::update()
 {
-       //wnoutrefresh( this->bgWindow->getTop());                        // Supposedly more efficient to do this for all windows then call doupdate(), 
-                                                        // but we'd have to keep track of all the windows in this class
-
     // Scroll the background here
     // Check for input and timeout and doUpdate() if none entered
         //halfdelay(x/10 seconds --probably needs to be an init function somewhere else)
@@ -48,7 +47,6 @@ void Screen::update()
 
 void Screen::addToPanelLevel(Window* image)      // There is also a user pointer for each panel I think...used to store anything if we need it
 {
-                                                                    std::cout << "\nAdding Panel Index #" << (int)panelLevel.size() <<" to the window" << std::endl;
     image->setPanelIndex( panelLevel.size() );
     this->panelLevel.push_back( new_panel(image->getTop()) );
     update_panels();
@@ -60,18 +58,16 @@ void Screen::addToPanelLevel(Window* image)      // There is also a user pointer
 Window* Screen::loadImages(vector<string> filenames, int xPos, int yPos)
 {
     Window* baseWindow = new Window(filenames[0], xPos, yPos);
-                                                                    std::cout << "\nAdding " << filenames[0] << " to panel#" << panelLevel.size() << std::endl;
     baseWindow->setPanelIndex( panelLevel.size() );                  // Noting the Index of the panel location in the Window class
     this->panelLevel.push_back( new_panel(baseWindow->getTop()) );
     
     // For multiple files (only happens for animations)
     for(unsigned int i = 1; i < filenames.size(); i++) 
     {
-                                                                    std::cout << "\nAdding " << filenames[i] << " to panel#" << panelLevel.size() << std::endl;
         WINDOW* nextImage = baseWindow->appendAnimation( filenames[i] );
         this->panelLevel.push_back( new_panel(nextImage) );  // Add all the other screen 
     }
-    update_panels();
+
     this->movingWindows.push_back(baseWindow);
     return baseWindow;
 }
@@ -84,19 +80,17 @@ void Screen::move(std::string direction, Window* baseWindow)
 {
     int levelSpeed = this->level;
 
+    int xPos = baseWindow->getX();
+    int yPos = baseWindow->getY();
+    
     // If it does, make the current image hidden, make the next image visible and change the top Window
     if(baseWindow->isAnimated())
     {
-        int topPanelIndex = baseWindow->getPanelIndex();   
-
-        hide_panel( panelLevel[ topPanelIndex ] );                              // Hide the top window
+        hide_panel( panelLevel[ baseWindow->getPanelIndex() ] );                // Hide the top window
         baseWindow->rotate();                                                   // Changes the top window index
-        topPanelIndex = baseWindow->getPanelIndex();                        
-        show_panel( panelLevel[ topPanelIndex ] );                //  Shows the (new) top window
+        show_panel( panelLevel[ baseWindow->getPanelIndex() ] );                //  Shows the NEW top window
     }
 
-    int xPos = baseWindow->getX();
-    int yPos = baseWindow->getY();
     
     if(direction == "left" && xPos > 0 )                   // Only move left if not at the left edge
                 baseWindow->setX(xPos - 2*levelSpeed);
@@ -107,7 +101,8 @@ void Screen::move(std::string direction, Window* baseWindow)
     if(direction == "down" &&(yPos + baseWindow->getHeight()) < bgWindow->getHeight() )          
                 baseWindow->setY(yPos + levelSpeed );
 
-            move_panel( this->panelLevel[ baseWindow->getPanelIndex() ] , yPos, xPos );
+    move_panel( this->panelLevel[ baseWindow->getPanelIndex() ] , yPos, xPos );
+    update();
 }
 
 void Screen::scrollBg(Window* bgWindow)             // I'm thinking later change params to an array of Window pointers for all objects in the background

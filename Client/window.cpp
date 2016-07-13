@@ -57,7 +57,6 @@ Window* Window::getBackground(int level)
         case 1:
         {
             WINDOW* bgWin = bg->getTop();
-            wbkgd(bgWin, COLOR_PAIR(1));
             int grassValue = 5;                         // The amount of grass on each line
             wattron(bgWin, COLOR_PAIR(1));
             for(int i = 0; i < rows; i++)
@@ -131,10 +130,6 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
         wmove(windowFromFile, 4, 6);
 
 
-
-        //refresh();
-        //wrefresh(windowFromFile);
-        
         return windowFromFile;
     }
 }
@@ -143,7 +138,7 @@ void Window::rotate()
 {
     this->top = win[ this->nextWindowIndex ];                       // The current top window is now the next window in the array
     this->currentWindowIndex = this->nextWindowIndex;               // Update the currentWindow Index to reflect that change
-    if((unsigned int)this->nextWindowIndex + 1 >= 2 ) //win.size() , not 2
+    if((unsigned int)this->nextWindowIndex + 1 >= this-> win.size() ) 
         this->nextWindowIndex = 0;                                  // If the next index value would be more than the # of windows in the vector
     else                                                            // Reset the next window to be the first window in the vector,  otherwise increment
         this->nextWindowIndex++;
