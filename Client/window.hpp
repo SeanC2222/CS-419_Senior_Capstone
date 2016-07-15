@@ -23,7 +23,8 @@ class Window
         Window(int height, int width, int xStart, int yStart);
         Window(string filename, int xStart, int yStart);
         void showBorder();
-        static Window* getBackground(int level);
+        static Window* getBackground(int level, int j);
+        static Window* getBackgroundFromFile(int k);
         void setPanelIndex(int PanelNum);
         int getPanelIndex();
         int getX();

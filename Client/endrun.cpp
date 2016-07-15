@@ -1,6 +1,10 @@
 //C/Unix Libraries
-#include "unistd.h" //Read/Write, Child Processes
-#include "signal.h" //Handle Signals 
+#include <unistd.h> //Read/Write, Child Processes
+#include <ncurses.h>
+#include <signal.h> //Handle Signals 
+#include <stdlib.h>
+#include <sys/time.h>
+#include <sys/types.h>
 //C++ Libraries
 #include <iostream> //IO Handling
 #include <vector>   //Data Container
@@ -11,24 +15,45 @@
 
 int main(int argc, char* argv[]){
     
+    std::string host, port, connPort;
+    
+    if(argc > 3){
+        host = std::string(argv[1]);
+        port = std::string(argv[2]);
+        connPort = std::string(argv[3]);
+    } else {
+        std::cout << "Current usage: " << std::endl
+                  << "endrun <dest_host> <dest_port> <conn_port>" << std::endl;
+        exit(0);
+    }
+
     //Create client socket and connect to server
-    inetSock cliSock("localhost", argv[1], argv[2]);
+    inetSock cliSock(host, port, connPort);
+    std::string msg;
+    msg = "test";
     
-    //Create fake JSON style message, and c-string
-    std::string message;
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
     
-    if(argc >= 3){
-        message = argv[2];
-    } else {
-        message = "This is a test message from port ";
-        message += argv[1];
+    fd_set readfds, writefds;
+    FD_ZERO(&readfds);
+    FD_ZERO(&writefds);
+    FD_SET(0, &readfds);    //Adds STDIN to readfds
+    FD_SET(cliSock.getFD(), &writefds);
+    
+    
+    while(1){
+        
+        FD_SET(0, &readfds);    //Adds STDIN to readfds
+        FD_SET(cliSock.getFD(), &writefds);
+        select(5, &readfds, NULL, NULL, NULL);
+    
+        if(FD_ISSET(0, &readfds)){ 
+            std::cin >> msg;
+            int n = cliSock.writeToSock(msg, msg.size()+1);
+            std::cout << "n = " << n << std::endl;
+        }
     }
-    //If cliSock is open (i.e. connected)
-    if(cliSock.isOpen()){
-        //Write messages to socket
-        cliSock.writeToSock(message, message.size());
-        return 0;
-    } else {
-        return -1;
-    }
+    
 }

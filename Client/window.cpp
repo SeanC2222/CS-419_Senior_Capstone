@@ -47,7 +47,7 @@ void Window::showBorder()
    make a constructor with a confusing single parameter or extend the 
    class just to make an appropriately named constructor... 
 */
-Window* Window::getBackground(int level)
+/*Window* Window::getBackground(int level)
 {
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
@@ -74,7 +74,107 @@ Window* Window::getBackground(int level)
             exit(1);
     }
     return bg;
+}*/
+
+Window* Window::getBackground(int level, int k=0)
+{
+    int rows, cols, bgCols;
+    getmaxyx(stdscr, rows, cols);
+    Window* bg = new Window(rows, cols, 0, 0);              
+    switch(level)
+    {
+        case 1:
+        {
+            WINDOW* bgWin = bg->getTop();
+            wattron(bgWin, COLOR_PAIR(1));
+            for(int i = 0; i < rows; i++)
+            {
+                int j=0;
+                string bgLine(cols, ' ');          // A row of spaces the width of the screen to be filled in with the bg color yellow
+                for(int m = k; m < cols; m++){
+                    if (i%2==0){
+                        if (m%2==0)
+                           bgLine[j]='-';
+                        else
+                           bgLine[j]=' ';
+                    }
+                    else{
+                        if (m%2==0)
+                           bgLine[j]=' ';
+                        else
+                           bgLine[j]='-';
+                    }
+                    for(int m=cols-1; m>cols-k; m--)
+                        bgLine[m]='o';
+                    j++;
+                mvwprintw(bgWin, i, 0, bgLine.c_str());
+                // Print the line, repeat for all lines
+                }
+            }
+            wattroff(bgWin, COLOR_PAIR(1));
+            break;
+        }
+        default:
+            cerr << "No Background Level Selected";
+            exit(1);
+    }
+    return bg;
 }
+
+
+//MARTHA: NOT USED YET
+Window* Window::getBackgroundFromFile(int k)
+{
+    string path = "./Images/bg.txt";
+    ifstream inputFile;
+    inputFile.open(path);
+
+    if(!inputFile.is_open())
+    {
+       cerr << "Couldn't open file: " << path;
+       exit(1);
+    }
+
+    else
+    {
+        string line;
+        int screenXSize, screenYSize;
+        string::size_type cols=0;
+        int rows = 0;
+        while( getline(inputFile, line) )        // Get the max cols and number of rows from the file to create a window the right size
+        {
+            rows++;
+            cols = ( (line.length() > cols) ? line.length() : cols );
+        }
+
+        getmaxyx(stdscr, screenYSize, screenXSize);
+        //Window* bg = new Window (rows, cols, 0, 0);
+        Window* bg = new Window (rows, cols, 0, 0);
+        WINDOW* bgFromFile = bg->getTop();
+        //bgFromFile = newwin(rows, cols, 0, 0);
+
+        inputFile.clear();               // "Unlocks" the file for processing after reaching EOF
+        inputFile.seekg(0);             // Return to the beginning of the file
+        //rows=0;
+
+       //wbkgd(windowFromFile, COLOR_PAIR(1));        // Fills in the background color where spaces weren't entered
+
+        wattron(bgFromFile, COLOR_PAIR(1));
+        for (int r=0; r<screenYSize; r++)
+        { // Get the file and put it in the window
+            string line(cols, ' ');
+            if( getline(inputFile, line) ){
+                //string line(cols, ' ');
+                if (line.length()>screenYSize)
+                    //line.erase(line.begin()+screenYSize, line.end());
+                mvwprintw(bgFromFile, r, 0, line.c_str());
+            }
+        }
+        wattroff(bgFromFile, COLOR_PAIR(1));
+        return bg;
+    }
+}
+
 
 WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned int colorScheme)
 {

@@ -4,6 +4,7 @@
 #include <vector>
 #include "screen.hpp"
 #include <unistd.h>
+#include <iostream>
 
 int main()
 {
@@ -16,9 +17,21 @@ int main()
     
     main.update();
 
+    /*added by martha*/
+    int j=0;
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+    timeout(0);
+/*added by martha*/
+
     wchar_t ch;
     while( (ch =getch() ) != 'q' )
-    {  
+    {
+        /*added by martha*/
+        main.scrollBg(j);
+        j++;
+        /*added by martha*/
+
         switch(ch)
         {
             case KEY_LEFT:
@@ -33,11 +46,10 @@ int main()
             case KEY_DOWN:
                 main.move("down", wolf);
                 break;
-            default:
-                mvprintw(1,0, "Use the arrow keys to move your puppy!\n ('q' to quit)");
+            /*default case  commented out by martha*/
+            //default:
+               // mvprintw(1,0, "Use the arrow keys to move your puppy!\n ('q' to quit)");
         }
-        //usleep(delay);
-
     }
     main.cleanup();
     endwin();

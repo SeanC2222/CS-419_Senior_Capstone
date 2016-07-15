@@ -50,7 +50,7 @@ public:
    //Destructor
    ~inetSock();
    
-   int getFileDescriptor() const;
+   int getFD() const;
    int getPortNumber() const;
    int isOpen() const;
    struct addrinfo getAddr() const;

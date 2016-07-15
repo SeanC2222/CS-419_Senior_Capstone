@@ -34,6 +34,7 @@
 #include <sys/wait.h>	   //Flags for waiting functions
 #include <string.h>        //Memory manipulations and c-string manipulations
 #include <netdb.h>         //Struct addrinfo
+#include <stdlib.h>
 //C++ Libraries
 #include <string>          //std::string
 #include <iostream>        //cout, cerr
@@ -131,16 +132,17 @@ void inetSock::_dumpState(){
              << "\t open = " << this->open << std::endl
              << "\t addr = ";
    for(unsigned int i = 0; i < sizeof(struct addrinfo); i++){
-      std::cerr << ((char*)&this->addr)[i] << std::endl;
+      std::cerr << ((char*)&this->addr)[i];
    }
-   std::cerr << "\t hints = ";
+   std::cerr << std::endl << "\t hints = ";
    for(unsigned int i = 0; i < sizeof(struct addrinfo); i++){
-      std::cerr << ((char*)&this->hints)[i] << std::endl;
+      std::cerr << ((char*)&this->hints)[i];
    }
-   std::cerr << "\t addrRes = ";
+   std::cerr << std::endl << "\t addrRes = ";
    for(unsigned int i = 0; i < sizeof(struct addrinfo); i++){
-      std::cerr << (char*)&this->addrRes[i] << std::endl;
-   }  
+      std::cerr << (char*)&this->addrRes[i];
+   }
+   std::cerr << std::endl;
 }
 
 //Bare constructor
@@ -160,7 +162,7 @@ inetSock::inetSock(){
 
 //Copy constructor
 inetSock::inetSock(const inetSock &sock){
-   this->sFD = sock.getFileDescriptor();
+   this->sFD = sock.getFD();
    this->pNo = sock.getPortNumber();
    this->open = sock.isOpen();
    if(this->open == 1){
@@ -222,7 +224,7 @@ inetSock::inetSock(int openFD){
 //Copy operator
 inetSock& inetSock::operator=(const inetSock& target){
    if(this != &target){
-      this->sFD = target.getFileDescriptor();
+      this->sFD = target.getFD();
       this->pNo = target.getPortNumber();
       this->open = target.isOpen();
       this->addr = target.getAddr();
@@ -241,7 +243,7 @@ inetSock::~inetSock(){
 }
 
 //Get Member Functions
-int inetSock::getFileDescriptor() const {return this->sFD;}
+int inetSock::getFD() const {return this->sFD;}
 int inetSock::getPortNumber() const {return this->pNo;}
 int inetSock::isOpen() const {return this->open;}
 struct addrinfo inetSock::getAddr() const {return this->addr;}

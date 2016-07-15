@@ -23,7 +23,8 @@ class Screen
      public:
         void init();
         void update();
-        void scrollBg(Window* bgWindow);
+        //void scrollBg(Window* bgWindow);
+        void scrollBg(int startCol);    
         void move(std::string direction, Window* image);
         void cleanup();
         Window* loadImages(vector<string> filenames, int x, int y);

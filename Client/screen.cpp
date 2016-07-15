@@ -1,5 +1,5 @@
 #include "screen.hpp"
-
+#include <unistd.h>
 #include <iostream>
 
 void Screen::init()
@@ -23,7 +23,7 @@ void Screen::init()
     keypad(stdscr, TRUE);       // For getting arrow keys
     curs_set(0);                // Make the cursor invisible --Doesn't work :(
 
-    this->bgWindow = Window::getBackground(1);   // Get the first level's background and set it to panel level 0
+    this->bgWindow = Window::getBackground(1,0);   // Get the first level's background and set it to panel level 0
                                                             std::cout << "\nAdding the Background Image:\n";
     addToPanelLevel(this->bgWindow);
     this->level = 1;
@@ -105,10 +105,18 @@ void Screen::move(std::string direction, Window* baseWindow)
     update();
 }
 
-void Screen::scrollBg(Window* bgWindow)             // I'm thinking later change params to an array of Window pointers for all objects in the background
+
+//void Screen::scrollBg(Window* bgWindow) // I'm thinking later change params to an array of Window pointers for all objects in the background
+
+//Martha: updates background by replcing it with a scrolled version of itself
+void Screen::scrollBg(int j)
 {
-    // There's a command moveVLine or something to move a vertical line...
-    // just move from col 0 to col max-1 and move the rest over?
+    this->bgWindow = Window::getBackground(1,j);//Background will start reading from column j
+    this->bgWindow->setPanelIndex(0);
+    replace_panel(this->panelLevel[0],this->bgWindow->getTop());
+    move_panel(this->panelLevel[0], 0, 0);
+    usleep(1000000);
+    update();
 }
 
 

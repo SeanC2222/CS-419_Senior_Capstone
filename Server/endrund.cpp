@@ -66,12 +66,14 @@ int main(int argc, char* argv[]){
 		}
 		close(STDIN_FILENO);
 		
-		std::streambuf *coutbuf = std::cout.rdbuf();
-		std::cout.rdbuf(logs.rdbuf());
-		std::streambuf *cerrbuf = std::cerr.rdbuf();
-		std::cerr.rdbuf(logs.rdbuf());
+		//std::streambuf *coutbuf = std::cout.rdbuf();
+		//std::cout.rdbuf(logs.rdbuf());
+		//std::streambuf *cerrbuf = std::cerr.rdbuf();
+		//std::cerr.rdbuf(logs.rdbuf());
 		
 		buildServer(portno);
+		//std::cout.rdbuf(coutbuf);
+		//std::cerr.rdbuf(cerrbuf);
 		exit(0);
 	} else {
 		if(pid < 0){
@@ -146,15 +148,22 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 	}
 	return std::pair<std::string, bool>(DEFAULT_PORT, true);
 }
+
 int buildServer(std::string portno){
 	//Create socket to listen on; Port currently arbitrary
 	inetSock servSock(portno);
 	
 	//Listen on open file descriptor, accept up to 10 connections
-	listen(servSock.getFileDescriptor(), 10);
+	listen(servSock.getFD(), 10);
+	
 	//Set FD to non-blocking mode
-	fcntl(servSock.getFileDescriptor(), F_SETFL, fcntl(servSock.getFileDescriptor(), F_GETFL) | O_NONBLOCK);
+	//fcntl(servSock.getFD(), F_SETFL, fcntl(servSock.getFD(), F_GETFL) | O_NONBLOCK);
 
+	//Set up fd_set to poll the listening file descriptor for events
+	fd_set acceptfd;
+	FD_ZERO(&acceptfd);
+	FD_SET(servSock.getFD(), &acceptfd);
+	
 	//Game, and gamePID tracking
 	std::vector< std::pair<int,int> > games;
 	std::vector<int> gamePID;
@@ -163,10 +172,15 @@ int buildServer(std::string portno){
 		//Keeps count of current total players
 	int playerCount = 0;
 	
+ 
 	//Server Loop
 	while(1){
+		select(servSock.getFD()+1, &acceptfd, NULL, NULL, NULL);
+		int fd = -1;
 		//Accept a connection if available
-		int fd = accept(servSock.getFileDescriptor(), NULL, NULL);
+		if(FD_ISSET(servSock.getFD(), &acceptfd)){
+			fd = accept(servSock.getFD(), NULL, NULL);
+		}
 		//Allows binding of socket unless already being listened on
 		//Not necessary, but useful for program crashes/reboots on the same port
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, NULL, 0);
@@ -176,10 +190,12 @@ int buildServer(std::string portno){
 			if(playerCount % 2 == 0){
 				//Store player in first players slot
 				players.first = fd;
+				write(players.first, "1", 2);
 				playerCount++;
 			} else {
-				//Store player in second players slot
+				//Store player in second players slotj
 				players.second = fd;
+				write(players.second, "2", 2);
 				playerCount++;
 				//Store pair of players
 				games.push_back(players);
@@ -198,7 +214,6 @@ int buildServer(std::string portno){
 					gamePID.push_back(pid);
 				}
 			}
-			
 		}
 		
 		//Check gamePID for shutdown processes
@@ -223,17 +238,45 @@ void playGame(std::pair<int,int> player) {
 	//Creates dummy inetSockets to allow reading from file descriptors
 	inetSock player1(player.first);
 	inetSock player2(player.second);
-	std::cout << "Server: Players " << player.first << ", " << player.second << std::endl;
-
-	//Simple test once two players are connected to see if server can read
-	std::cout << "Server: Testing " << player.first << " read..." << std::endl;
-	std::string play1Msg = player1.readFromSock(512);
-	std::cout << "Server: Read from player1 - " << play1Msg << std::endl;
-	player2.writeToSock(play1Msg, play1Msg.size());
 	
-	std::cout << "Server: Testing " << player.second << " read..." << std::endl;
-	std::string play2Msg = player2.readFromSock(512);
-	std::cout << "Server: Read from player2 - " << play2Msg << std::endl;
-	player1.writeToSock(play2Msg, play2Msg.size());
+	fd_set players;
+	FD_ZERO(&players);
+
+	int highFD = (player1.getFD() > player2.getFD()) ? player1.getFD() : player2.getFD();
+	int lowFD  = (player1.getFD() > player2.getFD()) ? player2.getFD() : player1.getFD();
+
+	struct timeval timeout;
+
+	while(player1.isOpen() && player2.isOpen()){
+		
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 0;
+	
+		FD_SET(player1.getFD(), &players);
+		FD_SET(player2.getFD(), &players);
+		
+		std::string p1msg, p2msg;		
+		select(highFD+1, &players, NULL, NULL, &timeout);
+		
+		if(FD_ISSET(player1.getFD(), &players)){
+			p1msg = player1.readFromSock(512);
+		}
+		
+		if(FD_ISSET(player2.getFD(), &players)){
+			p2msg = player2.readFromSock(512);
+		}
+		
+		if(p1msg.size() > 0){
+			std::cout << "Player 1 pressed: " << p1msg << std::endl;
+			std::cout << "Message Size: " << p1msg.size() << std::endl;
+			player2.writeToSock(p1msg, 512);			
+		}
+
+		if (p2msg.size() > 0){
+			std::cout << "Player 2 pressed: " << p2msg << std::endl;
+			std::cout << "Message Size: " << p2msg.size() << std::endl;
+			player1.writeToSock(p2msg, 512);
+		}
+	}
 	
 }
