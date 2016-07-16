@@ -45,10 +45,12 @@ int main(int argc, char* argv[]){
     myWin = initscr();
     //cbreak();
     wchar_t c;
+    msg = " ";
     while(cliSock.isOpen()){
         
         if( (c = getch()) != ERR){
-            int n = write(cliSock.getFD(), &c, 2);
+            msg[0] = c;
+            int n = cliSock.writeToSock(msg, msg.size()+1);
             std::cout << "n = " << n << ", c = " << c << std::endl;
         }
         usleep(100000);

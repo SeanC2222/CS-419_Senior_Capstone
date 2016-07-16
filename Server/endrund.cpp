@@ -22,15 +22,14 @@
 std::vector<std::string> getArgs(int, char**);
 //Parses Command Line Arguments
 std::pair<std::string,bool> parseArgs(std::vector<std::string>);
+//Create Logs/endrund Path if not exists
+int checkLogsPath();
 //Starts Server
 int buildServer(std::string);
 //Main Server Game Loop
 void playGame(std::pair<int,int>);
 
 int main(int argc, char* argv[]){
-	
-	//Default
-	int status = chdir("/home/ubuntu/workspace");  //Needs to be calibrated for general use on FLIP
 
 	std::vector<std::string> args;
 	
@@ -53,6 +52,12 @@ int main(int argc, char* argv[]){
 				portno = status.first;
 			}
 		}
+	}
+
+	int status = checkLogsPath();
+	if(status){
+		std::cerr << "endrund: Error validating/creating logs path" << std::endl;
+		return -1;
 	}
 	
 	std::cout << "endrund: Starting background process on port " << portno << std::endl;
@@ -154,6 +159,27 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 		}
 	}
 	return std::pair<std::string, bool>(DEFAULT_PORT, true);
+}
+
+//Checks if Log path Exists
+int checkLogsPath(){
+	
+	int status = access("logs", F_OK);
+	if(status){
+		status = mkdir("logs", S_IRWXU | S_IRWXG);
+		if(status){
+			return -1;
+		}
+	}
+	status = access("logs/endrund", F_OK);
+	if(status){
+		status = mkdir("logs/endrund", S_IRWXU | S_IRWXG);
+		if(status){
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 int buildServer(std::string portno){
