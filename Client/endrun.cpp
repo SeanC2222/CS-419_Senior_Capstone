@@ -29,8 +29,6 @@ int main(int argc, char* argv[]){
 
     //Create client socket and connect to server
     inetSock cliSock(host, port, connPort);
-    std::string msg;
-    msg = "test";
     
     struct timeval timeout;
     timeout.tv_sec = 5;
@@ -42,18 +40,32 @@ int main(int argc, char* argv[]){
     FD_SET(0, &readfds);    //Adds STDIN to readfds
     FD_SET(cliSock.getFD(), &writefds);
     
-    
-    while(1){
+    std::string msg;
+    WINDOW* myWin;
+    myWin = initscr();
+    //cbreak();
+    wchar_t c;
+    while(cliSock.isOpen()){
         
-        FD_SET(0, &readfds);    //Adds STDIN to readfds
+        if( (c = getch()) != ERR){
+            int n = write(cliSock.getFD(), &c, 2);
+            std::cout << "n = " << n << ", c = " << c << std::endl;
+        }
+        usleep(100000);
+/*        FD_SET(0, &readfds);    //Adds STDIN to readfds
         FD_SET(cliSock.getFD(), &writefds);
         select(5, &readfds, NULL, NULL, NULL);
-    
+
+        msg = "";
         if(FD_ISSET(0, &readfds)){ 
-            std::cin >> msg;
+            char c;
+            while( (c = getch()) != ERR && msg.size() < 10){
+                msg += c;
+            }
             int n = cliSock.writeToSock(msg, msg.size()+1);
-            std::cout << "n = " << n << std::endl;
+            std::cout << "n = " << n << ", msg = " << msg << std::endl;
         }
+*/
     }
     
 }

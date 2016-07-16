@@ -30,7 +30,7 @@ void playGame(std::pair<int,int>);
 int main(int argc, char* argv[]){
 	
 	//Default
-	int status = chdir("/home/ubuntu/workspace");
+	int status = chdir("/home/ubuntu/workspace");  //Needs to be calibrated for general use on FLIP
 
 	std::vector<std::string> args;
 	
@@ -39,47 +39,53 @@ int main(int argc, char* argv[]){
 	if(argc > 1){
 		args = getArgs(argc, argv);
 		std::pair<std::string, bool> status = parseArgs(args);
+		//If there was an error, announce error and exit
 		if(!status.second){
 			std::cerr << "endrund: Error with argument \"" + status.first + "\"" << std::endl;
 			return -1;
+		//Else no error and continue
 		} else {
+			//If command executed successfully was --shutdown, exit
 			if(status.first == "--shutdown"){
 				return 0;
+			//Else set portno to first
 			} else {
 				portno = status.first;
 			}
 		}
 	}
 	
-	std::cout << "endrund: Starting daemon on port " << portno << std::endl;
+	std::cout << "endrund: Starting background process on port " << portno << std::endl;
 	pid_t pid = fork();
 	bool child = (pid == 0) ? true : false;
 
 	if(child){
 
 		std::ofstream logs("logs/endrund/endrundlog.txt", std::ofstream::out | std::ofstream::app);
-		umask(0);
-		pid_t sid = setsid();
-		if(sid < 0){
-			logs << "endrund: Unable to create new SID for daemon." << std::endl;
-			exit(-1);
-		}
+		
+		//Daemon Functionality turned off...
+		//umask(0);
+		//pid_t sid = setsid();
+		//if(sid < 0){
+		//	logs << "endrund: Unable to create new SID for daemon." << std::endl;
+		///	exit(-1);
+		//}
 		close(STDIN_FILENO);
 		
-		//std::streambuf *coutbuf = std::cout.rdbuf();
-		//std::cout.rdbuf(logs.rdbuf());
-		//std::streambuf *cerrbuf = std::cerr.rdbuf();
-		//std::cerr.rdbuf(logs.rdbuf());
+		std::streambuf *coutbuf = std::cout.rdbuf();
+		std::cout.rdbuf(logs.rdbuf());
+		std::streambuf *cerrbuf = std::cerr.rdbuf();
+		std::cerr.rdbuf(logs.rdbuf());
 		
 		buildServer(portno);
-		//std::cout.rdbuf(coutbuf);
-		//std::cerr.rdbuf(cerrbuf);
+		std::cout.rdbuf(coutbuf);
+		std::cerr.rdbuf(cerrbuf);
 		exit(0);
 	} else {
 		if(pid < 0){
-			std::cerr << "endrund: Daemon startup unsuccessful" << std::endl;
+			std::cerr << "endrund: Process startup unsuccessful" << std::endl;
 		} else {
-			std::cout << "endrund: Daemon started as PID: " << pid << std::endl;
+			std::cout << "endrund: Process started as PID: " << pid << std::endl;
 			std::ofstream pidLog("logs/endrund/endrund.pid", std::ofstream::out);
 			pidLog << pid << std::endl;
 			pidLog.close();
@@ -91,6 +97,7 @@ int main(int argc, char* argv[]){
 std::vector<std::string> getArgs(int argc, char* argv[]){
 	std::vector<std::string> args;
 	for(int i = 1; i < argc; i++){
+		//If "--shutdown" exists, insert as first argument
 		if(std::string(argv[i]) == "--shutdown"){
 			args.insert(args.begin(), argv[i]);
 		} else {
@@ -103,7 +110,7 @@ std::vector<std::string> getArgs(int argc, char* argv[]){
 std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 	for(unsigned int i = 0; i < args.size(); i++){
 		if(args[i] == "--shutdown"){
-			std::cout << "endrund: Shutting down current daemon" << std::endl;
+			std::cout << "endrund: Shutting down current process" << std::endl;
 			std::ifstream pidLog("logs/endrund/endrund.pid", std::ifstream::in);
 			pid_t currentPID;
 			pidLog >> currentPID;
@@ -112,10 +119,10 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 			if(currentPID){
 				int status = kill(currentPID, SIGTERM);
 				if(status){
-					std::cout << "endrund: Could not shut down daemon or daemon not found" << std::endl;
+					std::cout << "endrund: Could not shut down process or PID not found" << std::endl;
 					return std::pair<std::string, bool>(args[i], false);
 				} else {
-					std::cout << "endrund: Daemon shutdown successfully" << std::endl;
+					std::cout << "endrund: Process shutdown successfully" << std::endl;
 					std::remove("logs/endrund/endrund.pid");
 					return std::pair<std::string, bool>(args[i], true);;
 				}
@@ -135,11 +142,11 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 			std::cout << "endrund: Usage:" << std::endl
 					  << "\tDefault: " << std::endl
 					  << "\t\t./endrund " << std::endl 
-					  << "\t\tStarts daemon on port 52010" << std::endl << std::endl
+					  << "\t\tStarts process on port 52010" << std::endl << std::endl
 					  << "\t\t./endrund [-p|--port] [port_number]" << std::endl
-					  << "\t\tStarts daeomon on specified port number" << std::endl << std::endl
+					  << "\t\tStarts process on specified port number" << std::endl << std::endl
 					  << "\t\t./endrund --shutdown" << std::endl
-					  << "\t\tShuts down current daemon process" << std::endl;
+					  << "\t\tShuts down current process" << std::endl;
 			return std::pair<std::string, bool>("--shutdown", true);
 		} else {
 			std::cerr << "endrund: Invalid argument \"" << args[i] << "\"" << std::endl;
@@ -156,9 +163,6 @@ int buildServer(std::string portno){
 	//Listen on open file descriptor, accept up to 10 connections
 	listen(servSock.getFD(), 10);
 	
-	//Set FD to non-blocking mode
-	//fcntl(servSock.getFD(), F_SETFL, fcntl(servSock.getFD(), F_GETFL) | O_NONBLOCK);
-
 	//Set up fd_set to poll the listening file descriptor for events
 	fd_set acceptfd;
 	FD_ZERO(&acceptfd);
@@ -167,20 +171,17 @@ int buildServer(std::string portno){
 	//Game, and gamePID tracking
 	std::vector< std::pair<int,int> > games;
 	std::vector<int> gamePID;
-		//Temporary players pair
-	std::pair<int,int> players;
-		//Keeps count of current total players
-	int playerCount = 0;
 	
+	//Temporary players pair
+	std::pair<int,int> players;
+	//Keeps count of current total players
+	int playerCount = 0;
  
 	//Server Loop
 	while(1){
-		select(servSock.getFD()+1, &acceptfd, NULL, NULL, NULL);
-		int fd = -1;
-		//Accept a connection if available
-		if(FD_ISSET(servSock.getFD(), &acceptfd)){
-			fd = accept(servSock.getFD(), NULL, NULL);
-		}
+		
+		int fd = accept(servSock.getFD(), NULL, NULL);
+
 		//Allows binding of socket unless already being listened on
 		//Not necessary, but useful for program crashes/reboots on the same port
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, NULL, 0);
@@ -190,12 +191,10 @@ int buildServer(std::string portno){
 			if(playerCount % 2 == 0){
 				//Store player in first players slot
 				players.first = fd;
-				write(players.first, "1", 2);
 				playerCount++;
 			} else {
 				//Store player in second players slotj
 				players.second = fd;
-				write(players.second, "2", 2);
 				playerCount++;
 				//Store pair of players
 				games.push_back(players);
@@ -248,7 +247,7 @@ void playGame(std::pair<int,int> player) {
 	struct timeval timeout;
 
 	while(player1.isOpen() && player2.isOpen()){
-		
+
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
 	
@@ -267,16 +266,19 @@ void playGame(std::pair<int,int> player) {
 		}
 		
 		if(p1msg.size() > 0){
-			std::cout << "Player 1 pressed: " << p1msg << std::endl;
+			std::cout << "Player 1 sent: " << p1msg << std::endl;
 			std::cout << "Message Size: " << p1msg.size() << std::endl;
-			player2.writeToSock(p1msg, 512);			
+			player2.writeToSock(p1msg, 512);
 		}
 
 		if (p2msg.size() > 0){
-			std::cout << "Player 2 pressed: " << p2msg << std::endl;
+			std::cout << "Player 2 sent: " << p2msg << std::endl;
 			std::cout << "Message Size: " << p2msg.size() << std::endl;
 			player1.writeToSock(p2msg, 512);
 		}
+
+		usleep(100000);
+
 	}
 	
 }
