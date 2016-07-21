@@ -360,6 +360,9 @@ void playGame(std::pair<int,int> player) {
 	inetSock player1(player.first);
 	inetSock player2(player.second);
 	
+	player1.writeToSock("1", 2);
+	player2.writeToSock("2", 2);
+	
 	fd_set players;
 	FD_ZERO(&players);
 
@@ -367,14 +370,28 @@ void playGame(std::pair<int,int> player) {
 	int lowFD  = (player1.getFD() > player2.getFD()) ? player2.getFD() : player1.getFD();
 
 	struct timeval timeout;
-	while(1)usleep(10000000);
+	
 	while(player1.isOpen() && player2.isOpen()){
 
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
-	
 		FD_SET(player1.getFD(), &players);
 		FD_SET(player2.getFD(), &players);
+
+		int wolfDir = rand() % 4;
+		std::string wolfMove;
+		if(wolfDir == 0){
+			wolfMove == "0";
+		} else if (wolfDir == 1){
+			wolfMove == "1";
+		} else if (wolfDir == 2){
+			wolfMove == "2";
+		} else {
+			wolfMove == "3";
+		}
+
+		player1.writeToSock(wolfMove, 2);
+		player2.writeToSock(wolfMove, 2);
 		
 		std::string p1msg, p2msg;		
 		select(highFD+1, &players, NULL, NULL, &timeout);
@@ -388,18 +405,16 @@ void playGame(std::pair<int,int> player) {
 		}
 		
 		if(p1msg.size() > 0){
-			std::cout << "Player 1 sent: " << p1msg << std::endl;
-			std::cout << "Message Size: " << p1msg.size() << std::endl;
 			player2.writeToSock(p1msg, 512);
+		} else {
+			player2.writeToSock("-1", 512);
 		}
 
 		if (p2msg.size() > 0){
-			std::cout << "Player 2 sent: " << p2msg << std::endl;
-			std::cout << "Message Size: " << p2msg.size() << std::endl;
 			player1.writeToSock(p2msg, 512);
+		} else {
+			player1.writeToSock("-1", 512);			
 		}
-
-		usleep(100000);
 
 	}
 	

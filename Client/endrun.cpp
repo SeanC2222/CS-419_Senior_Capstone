@@ -12,6 +12,7 @@
 
 //Custom Libraries
 #include "../inetLib/inetLib.hpp"
+#include "screen.hpp"
 
 int main(int argc, char* argv[]){
     
@@ -30,6 +31,9 @@ int main(int argc, char* argv[]){
     //Create client socket and connect to server
     inetSock cliSock(host, port, connPort);
     
+    int playerNum = atoi(cliSock.readFromSock(2).c_str());
+    bool playerOne = (playerNum == 1) ? true : false;
+    
     struct timeval timeout;
     timeout.tv_sec = 5;
     timeout.tv_usec = 0;
@@ -41,19 +45,101 @@ int main(int argc, char* argv[]){
     FD_SET(cliSock.getFD(), &writefds);
     
     std::string msg;
-    WINDOW* myWin;
-    myWin = initscr();
-    //cbreak();
-    wchar_t c;
+    Screen main = Screen();
+    main.init();
+
+    vector <string> wolfFiles {"wolfy.txt", "wolfy2.txt" };
+    vector <string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
+    Window* hero = main.loadImages(heroFiles, 10,10);
+
+    Window* wolf = main.loadImages(wolfFiles, 150, 10);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
+
+    main.update();
+    wchar_t ch;
     msg = " ";
+
+    int j=0;
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+    timeout(100);
+
     while(cliSock.isOpen()){
         
-        if( (c = getch()) != ERR){
-            msg[0] = c;
-            int n = cliSock.writeToSock(msg, msg.size()+1);
-            std::cout << "n = " << n << ", c = " << c << std::endl;
+        if( (ch = getch()) != ERR){
+            msg[0] = ch;
+        } else {
+            msg[0] = ' ';
         }
-        usleep(100000);
+        int n = cliSock.writeToSock(msg, 2);
+
+        /*added by martha*/
+        main.scrollBg(j);
+        j++;
+        if (j==175)  //max column size of bg file and should be updated accordingly
+	        j=0;
+        /*added by martha*/
+        int wolfDir = atoi(cliSock.readFromSock(2).c_str());
+        
+        switch(wolfDir){
+            case 0: 
+                main.move("left", wolf, true);
+                break;
+            case 1:
+                main.move("right", wolf, true);
+                break;
+            case 2:
+                main.move("down", wolf, true);
+                break;
+            case 3:
+                main.move("up", wolf, true);
+                break;
+        }
+
+        if(playerOne){
+            switch(ch)
+            {
+                case KEY_UP:
+                    main.move("up", hero, false);
+                    break;
+                case KEY_DOWN:
+                    main.move("down", hero, false);
+                    break;
+            }
+            ch = cliSock.readFromSock(2)[0];
+        } else {
+            switch(ch)
+            {
+            case KEY_LEFT:
+                main.move("left", hero, false);
+                break;
+            case KEY_RIGHT:
+                main.move("right", hero, false);
+                break;
+            }
+            ch = cliSock.readFromSock(2)[0];
+        }
+        
+        switch(ch)
+        {
+            case KEY_LEFT:
+                main.move("left", hero, false);
+                break;
+            case KEY_RIGHT:
+                main.move("right", hero, false);
+                break;
+            case KEY_UP:
+                main.move("up", hero, false);
+                break;
+            case KEY_DOWN:
+                main.move("down", hero, false);
+                break;
+        }
+        
+        main.update();
+    }
+    main.cleanup();
+    endwin();
+    return 0;
 /*        FD_SET(0, &readfds);    //Adds STDIN to readfds
         FD_SET(cliSock.getFD(), &writefds);
         select(5, &readfds, NULL, NULL, NULL);
@@ -68,6 +154,4 @@ int main(int argc, char* argv[]){
             std::cout << "n = " << n << ", msg = " << msg << std::endl;
         }
 */
-    }
-    
 }
