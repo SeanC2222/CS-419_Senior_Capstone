@@ -42,7 +42,7 @@ void Window::showBorder()
     wrefresh(this->getTop());
 }
 
-
+/*MARTHA: I COMMENTED OUT ORIGINAL getBackground FUNCTION*/
 /* Constructs a background window.  Because it didn't seem right to
    make a constructor with a confusing single parameter or extend the 
    class just to make an appropriately named constructor... 
@@ -78,7 +78,7 @@ void Window::showBorder()
 
 Window* Window::getBackground(int level, int k=0)
 {
-    int rows, cols, bgCols;
+    int rows, cols;
     getmaxyx(stdscr, rows, cols);
     Window* bg = new Window(rows, cols, 0, 0);              
     switch(level)
@@ -122,19 +122,19 @@ Window* Window::getBackground(int level, int k=0)
 }
 
 
-//MARTHA: NOT USED YET
+//MARTHA: To grab background from file in Images
 Window* Window::getBackgroundFromFile(int k)
 {
-    string path = "./Images/bg.txt";
+    string path = "./Images/bg1.txt";
     ifstream inputFile;
     inputFile.open(path);
-
+    
     if(!inputFile.is_open())
     {
        cerr << "Couldn't open file: " << path;
        exit(1);
     }
-
+    
     else
     {
         string line;
@@ -146,30 +146,27 @@ Window* Window::getBackgroundFromFile(int k)
             rows++;
             cols = ( (line.length() > cols) ? line.length() : cols );
         }
-
+    
         getmaxyx(stdscr, screenYSize, screenXSize);
-        //Window* bg = new Window (rows, cols, 0, 0);
-        Window* bg = new Window (rows, cols, 0, 0);
+      	Window* bg = new Window (rows, cols, 0, 0);
         WINDOW* bgFromFile = bg->getTop();
-        //bgFromFile = newwin(rows, cols, 0, 0);
-
         inputFile.clear();               // "Unlocks" the file for processing after reaching EOF
         inputFile.seekg(0);             // Return to the beginning of the file
-        //rows=0;
 
-       //wbkgd(windowFromFile, COLOR_PAIR(1));        // Fills in the background color where spaces weren't entered
 
         wattron(bgFromFile, COLOR_PAIR(1));
         for (int r=0; r<screenYSize; r++)
         { // Get the file and put it in the window
-            string line(cols, ' ');
+	        string line1(cols, ' ');	
             if( getline(inputFile, line) ){
-                //string line(cols, ' ');
-                if (line.length()>screenYSize)
-                    //line.erase(line.begin()+screenYSize, line.end());
+                string temp=line;
+	  	        line.erase(line.begin(), line.begin()+k);
+		        temp.erase(temp.begin()+k, temp.end());
+		        line.insert(line.length()-1,temp);
+		        mvwprintw(bgFromFile, r, 0, line1.c_str());
                 mvwprintw(bgFromFile, r, 0, line.c_str());
-            }
-        }
+	        }
+        }        
         wattroff(bgFromFile, COLOR_PAIR(1));
         return bg;
     }
@@ -221,15 +218,6 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
             mvwprintw(windowFromFile, rows++, 0, line.c_str()); 
         wattroff(windowFromFile, colorScheme);
        
-       
-//Don't need these
-        wattron(windowFromFile, A_UNDERLINE);
-        string bottomJaw = "(^^^";
-        mvwprintw(windowFromFile, 3, 1, "%s", bottomJaw.c_str());
-        wattroff(windowFromFile, A_UNDERLINE);
-        wmove(windowFromFile, 4, 6);
-
-
         return windowFromFile;
     }
 }

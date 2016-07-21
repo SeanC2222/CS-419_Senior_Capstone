@@ -18,6 +18,8 @@
 //Definitions
 #define DEFAULT_PORT "52010"
 
+//Set up Signal Handlers
+void setSignalActions(int);
 //Tokenizes Command Line Arguments in vector
 std::vector<std::string> getArgs(int, char**);
 //Parses Command Line Arguments
@@ -28,6 +30,10 @@ int checkLogsPath();
 int buildServer(std::string);
 //Main Server Game Loop
 void playGame(std::pair<int,int>);
+
+
+sig_atomic_t signalFlag = 0; //Global flag in parent to check for "--shutdown" signal
+sig_atomic_t currentHighscore = 0;
 
 int main(int argc, char* argv[]){
 
@@ -58,7 +64,7 @@ int main(int argc, char* argv[]){
 	if(status){
 		std::cerr << "endrund: Error validating/creating logs path" << std::endl;
 		return -1;
-	}
+	} 
 	
 	std::cout << "endrund: Starting background process on port " << portno << std::endl;
 	pid_t pid = fork();
@@ -67,7 +73,12 @@ int main(int argc, char* argv[]){
 	if(child){
 
 		std::ofstream logs("logs/endrund/endrundlog.txt", std::ofstream::out | std::ofstream::app);
-		
+
+		std::ifstream hs("logs/endrund/endrund.hs", std::ifstream::in);
+		if(hs.good()){
+			hs >> currentHighscore;
+			hs.close();
+		}
 		//Daemon Functionality turned off...
 		//umask(0);
 		//pid_t sid = setsid();
@@ -81,22 +92,78 @@ int main(int argc, char* argv[]){
 		std::cout.rdbuf(logs.rdbuf());
 		std::streambuf *cerrbuf = std::cerr.rdbuf();
 		std::cerr.rdbuf(logs.rdbuf());
-		
+
 		buildServer(portno);
+
 		std::cout.rdbuf(coutbuf);
 		std::cerr.rdbuf(cerrbuf);
-		exit(0);
+		std::cout << "Current HighScore : " << currentHighscore << std::endl;
+		return 0;
 	} else {
-		if(pid < 0){
-			std::cerr << "endrund: Process startup unsuccessful" << std::endl;
-		} else {
+		if(!kill(pid, 0)){
 			std::cout << "endrund: Process started as PID: " << pid << std::endl;
 			std::ofstream pidLog("logs/endrund/endrund.pid", std::ofstream::out);
 			pidLog << pid << std::endl;
 			pidLog.close();
+		} else {
+			std::cerr << "endrund: Process startup unsuccessful" << std::endl;
 		}
 	}
 	return 0;
+}
+
+void usr1Action(int signalNumber){
+	signalFlag = 1;
+	return;
+}
+
+void termAction(int signalNumber){
+		union sigval data = {currentHighscore};
+		sigqueue(getppid(), SIGUSR2, data);
+		exit(0);
+}
+
+void usr2Action(int signalNumber,  siginfo_t* data, void* other){
+	if(data->si_value.sival_int > currentHighscore){
+		currentHighscore = data->si_value.sival_int;
+		int fd = open("logs/endrund/endrund.hs", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+		if(fd != -1){
+			write(fd, &data->si_value.sival_int, sizeof(int));
+			close(fd);
+		}
+	}
+	return;
+}
+
+void setSignalActions(int setSig){
+	switch(setSig){
+
+	case SIGUSR1:
+		struct sigaction act;
+		act.sa_handler = usr1Action;
+		act.sa_flags = 0;
+		sigaction(SIGUSR1, &act, NULL);
+		break;
+		
+	case SIGTERM:
+		struct sigaction term;
+		term.sa_handler = termAction;
+		term.sa_flags = 0;
+		sigaction(SIGTERM, &term, NULL);
+		break;
+	
+	case SIGUSR2:
+		struct sigaction sdAct;
+		sdAct.sa_handler = SIG_IGN;
+		sdAct.sa_sigaction = usr2Action;
+		sdAct.sa_flags = SA_SIGINFO;
+		sigaction(SIGUSR2, &sdAct, NULL);
+		break;
+	
+	default:
+		break;
+	}
+	return;
 }
 
 std::vector<std::string> getArgs(int argc, char* argv[]){
@@ -122,7 +189,7 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 			pidLog.close();
 
 			if(currentPID){
-				int status = kill(currentPID, SIGTERM);
+				int status = kill(currentPID, SIGUSR1);
 				if(status){
 					std::cout << "endrund: Could not shut down process or PID not found" << std::endl;
 					return std::pair<std::string, bool>(args[i], false);
@@ -178,9 +245,18 @@ int checkLogsPath(){
 			return -1;
 		}
 	}
+	status = access("/logs/endrund/endrund.hs", F_OK);
+	if(status == 0){
+		std::ifstream hs("logs/endrund/endrund.hs", std::ifstream::in);
+		hs >> currentHighscore;
+		hs.close();
+	} else {
+		currentHighscore = 0;
+	}
 
 	return 0;
 }
+
 
 int buildServer(std::string portno){
 	//Create socket to listen on; Port currently arbitrary
@@ -203,8 +279,26 @@ int buildServer(std::string portno){
 	//Keeps count of current total players
 	int playerCount = 0;
  
+	setSignalActions(SIGUSR1);
+	setSignalActions(SIGUSR2);
+ 
 	//Server Loop
 	while(1){
+		
+		if(signalFlag){
+			//Closing actions go here!
+			//signal child processes
+			for(int i = 0; i < gamePID.size(); i++){
+				kill(gamePID[i], SIGTERM);
+			}
+			//retrieve high scores as signals come in
+			//wait for child processes
+			for(int i = 0; i < gamePID.size(); i++){
+				waitpid(gamePID[i], NULL, 0);
+			}
+			//exit
+			return 0;
+		} 
 		
 		int fd = accept(servSock.getFD(), NULL, NULL);
 
@@ -230,6 +324,8 @@ int buildServer(std::string portno){
 				bool child = (pid == 0) ? true : false;
 				//If process is child....
 				if(child){
+					//Sets SIGTERM actions for game process
+					setSignalActions(SIGTERM);
 					//Child Process
 					playGame(games[playerCount/2 -1]);
 					exit(0);
@@ -271,7 +367,7 @@ void playGame(std::pair<int,int> player) {
 	int lowFD  = (player1.getFD() > player2.getFD()) ? player2.getFD() : player1.getFD();
 
 	struct timeval timeout;
-
+	while(1)usleep(10000000);
 	while(player1.isOpen() && player2.isOpen()){
 
 		timeout.tv_sec = 1;
@@ -307,4 +403,5 @@ void playGame(std::pair<int,int> player) {
 
 	}
 	
+	termAction(0); //Passed int is irrelevant
 }

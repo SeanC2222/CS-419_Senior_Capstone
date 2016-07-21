@@ -1,6 +1,9 @@
 #include "screen.hpp"
 #include <unistd.h>
 #include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 void Screen::init()
 {
@@ -23,8 +26,8 @@ void Screen::init()
     keypad(stdscr, TRUE);       // For getting arrow keys
     curs_set(0);                // Make the cursor invisible --Doesn't work :(
 
-    this->bgWindow = Window::getBackground(1,0);   // Get the first level's background and set it to panel level 0
-                                                            std::cout << "\nAdding the Background Image:\n";
+   //this->bgWindow = Window::getBackground(1,0);   // Get the first level's background and set it to panel level 0
+    this->bgWindow = Window::getBackgroundFromFile(0);
     addToPanelLevel(this->bgWindow);
     this->level = 1;
     
@@ -65,7 +68,8 @@ Window* Screen::loadImages(vector<string> filenames, int xPos, int yPos)
     for(unsigned int i = 1; i < filenames.size(); i++) 
     {
         WINDOW* nextImage = baseWindow->appendAnimation( filenames[i] );
-        this->panelLevel.push_back( new_panel(nextImage) );  // Add all the other screen 
+        this->panelLevel.push_back( new_panel(nextImage) );     // Add all the other screens to panels, but 
+        hide_panel(this->panelLevel[ panelLevel.size()-1] );    // Hide the panels so only the original "baseWindow" shows
     }
 
     this->movingWindows.push_back(baseWindow);
@@ -74,9 +78,13 @@ Window* Screen::loadImages(vector<string> filenames, int xPos, int yPos)
 
 
 
-
-
-void Screen::move(std::string direction, Window* baseWindow)
+/* It now checks for a boolean bgElement flag, which will be set for all but
+   the hero.  If it's there, the element can move off the screen.  It also
+    now returns the last xPosition of the window (so if > 0 it's still on the screen).
+    It's not going to work though, I don't think a panel can be rendered off-screen, but 
+    a window can, so one option is to move the window off the panel...
+*/
+int Screen::move(std::string direction, Window* baseWindow, bool bgElement)
 {
     int levelSpeed = this->level;
 
@@ -92,32 +100,71 @@ void Screen::move(std::string direction, Window* baseWindow)
     }
 
     
-    if(direction == "left" && xPos > 0 )                   // Only move left if not at the left edge
-                baseWindow->setX(xPos - 2*levelSpeed);
-    if(direction == "right" && (xPos + baseWindow->getWidth())  < bgWindow->getWidth() )          
-                baseWindow->setX(xPos + 2*levelSpeed);
+    if(direction == "left")
+        if( (bgElement == false && xPos > 0 ) || bgElement == true )                   // Only move left if not at the left edge
+            baseWindow->setX(xPos - 2*levelSpeed);
+    if( direction == "right" && (xPos + baseWindow->getWidth()  < bgWindow->getWidth()) )          
+        baseWindow->setX(xPos + 2*levelSpeed);
     if(direction == "up" && yPos > 0 )                              
-                baseWindow->setY(yPos - levelSpeed);
-    if(direction == "down" &&(yPos + baseWindow->getHeight()) < bgWindow->getHeight() )          
+        baseWindow->setY(yPos - levelSpeed);
+    if(direction == "down" && (yPos + baseWindow->getHeight() < bgWindow->getHeight()) )          
                 baseWindow->setY(yPos + levelSpeed );
 
     move_panel( this->panelLevel[ baseWindow->getPanelIndex() ] , yPos, xPos );
-    update();
+    
+    return (xPos + baseWindow->getWidth());
 }
 
+/* Dylan's Scroll Method 
+void Screen::scrollBG(Window* bgWindow) // I'm thinking later change params to an array of Window pointers for all objects in the background
+{
+    int levelSpeed = 2*this->level;
 
-//void Screen::scrollBg(Window* bgWindow) // I'm thinking later change params to an array of Window pointers for all objects in the background
+    WINDOW* bgWin = bgWindow->getTop();
+    int rows = bgWindow->getHeight();
+    int cols = bgWindow->getWidth();
+    char* first = new char[cols/2];
+    char* remaining = new char[cols];
+    std::string strToPrint = "";
+    
+    wattron(bgWin, COLOR_PAIR(1));
+    // For all lines in window
+    for(int i = 0; i < rows; i++)
+    {
+        mvwinnstr(bgWin, i, 0, first, levelSpeed);                          // Get the first section (how many depends on the level)
+        mvwinnstr(bgWin, i, levelSpeed, remaining, cols-(levelSpeed+1) );   // Get the next part of the line
 
-//Martha: updates background by replcing it with a scrolled version of itself
+        strToPrint = remaining;                                             // Add them together in reverse order
+        strToPrint += first;
+        mvwprintw( bgWin, i, 0, strToPrint.c_str() );     // Print the remainder of the line at the beginning, first part at end
+    }
+    
+    wattroff(bgWin, COLOR_PAIR(1));
+    
+    delete[] first;
+    delete[] remaining;
+    
+    wrefresh(bgWin);
+}
+*/
+
+
+/*Martha: updates background by replcing it with a scrolled version of itself*/
 void Screen::scrollBg(int j)
 {
-    this->bgWindow = Window::getBackground(1,j);//Background will start reading from column j
+    //this->bgWindow = Window::getBackground(1,j);//Background will start reading from column j
+    this->bgWindow = Window::getBackgroundFromFile(j);
     this->bgWindow->setPanelIndex(0);
     replace_panel(this->panelLevel[0],this->bgWindow->getTop());
-    move_panel(this->panelLevel[0], 0, 0);
-    usleep(1000000);
     update();
 }
+
+
+Window* Screen::getBG()
+{
+    return this->bgWindow;
+}
+
 
 
 void Screen::cleanup()
