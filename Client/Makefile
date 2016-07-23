@@ -18,13 +18,13 @@ SRC1 = endrun.cpp
 SRC2 = ../inetLib/inetLib.cpp
 SRC3 = screen.cpp
 SRC4 = window.cpp
-SRC5 = test.cpp
+SRC5 = 
 SRC6 =
 SRC7 =
 SRC8 =
 SRC9 =
 
-SRCS = ${SRC1} ${SRC2}
+SRCS = ${SRC1} ${SRC2} ${SRC3} ${SRC4}
 SCREENC = ${SRC3} ${SRC4} ${SRC5}
 
 HDR1 = ../inetLib/inetLib.hpp
@@ -37,7 +37,7 @@ HDR7 =
 HDR8 =
 HDR9 =
 
-HDRS = ${HDR1}
+HDRS = ${HDR1} ${HDR2} ${HDR3}
 SCREENH = ${HDR2} ${HDR3}
 
 PROG = endrun
@@ -48,7 +48,7 @@ OBJS: ${SRCS} ${HDRS}
 	${CXX} ${CXXFLAGS} ${SRCS} -c $(@.o=.cpp)
 	
 ${PROG}: OBJS
-	${CXX} ${CXXFLAGS} *.o ${HDRS} -o ${PROG}
+	${CXX} *.o ${HDRS} ${CXXSCREENFLAGS} -o ${PROG}
 
 # Two sections below added by Dylan for screen testing
 SCREENOBJS: ${SCREENC} ${SCREENH}
@@ -58,4 +58,4 @@ screenTest: SCREENOBJS
 	$(CXX) -o $@ *.o ${CXXSCREENFLAGS}
 
 clean:
-	rm -f  *.o *~ *.gch  ${PROG}
+	rm -f  *.o *~ *.gch  ${PROG} screenTest
