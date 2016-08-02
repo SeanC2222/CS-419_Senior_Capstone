@@ -376,6 +376,8 @@ void playGame(std::pair<int,int> player) {
 	
 	while(player1.isOpen() && player2.isOpen()){
 
+		p1msg = p2msg = "H";
+		
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
 		
@@ -384,7 +386,7 @@ void playGame(std::pair<int,int> player) {
 		
 		select(highFD+1, &players, NULL, NULL, &timeout);
 		if(FD_ISSET(player1.getFD(), &players)){
-			p1msg = player1.readFromSock(512);
+			p1msg += player1.readFromSock(512);
 			if(p1msg.size() == 0){
 				player1.Close();
 			}
@@ -393,30 +395,36 @@ void playGame(std::pair<int,int> player) {
 		}
 		
 		if(FD_ISSET(player2.getFD(), &players)){
-			p2msg = player2.readFromSock(512);
+			p2msg += player2.readFromSock(512);
 			if(p2msg.size() == 0){
 				player2.Close();
 			}
 			player1.writeToSock(p2msg, 512);
 			player2.writeToSock(p2msg, 512);
 		}
-/*
-		int wolfDir = rand() % 4;
-		std::string wolfMove;
-		if(wolfDir == 0){
-			wolfMove == "0";
-		} else if (wolfDir == 1){
-			wolfMove == "1";
-		} else if (wolfDir == 2){
-			wolfMove == "2";
-		} else {
-			wolfMove == "3";
+		
+		int enemyMove = rand() % 100;
+		
+		if(enemyMove > 95){
+			int wolfDir = rand() % 5;
+			std::string enemyMove = "E";
+			//Up Encoding
+			if(wolfDir == 0){
+				enemyMove += "0";
+			//Down Encoding
+			} else if (wolfDir == 1){
+				enemyMove += "1";
+			//Right Encoding
+			} else if (wolfDir == 2){
+				enemyMove += "3";
+			//Left Encoding
+			} else {
+				enemyMove += "2";
+			}
+	
+			player1.writeToSock(wolfMove, 2);
+			player2.writeToSock(wolfMove, 2);
 		}
-
-		player1.writeToSock(wolfMove, 2);
-		player2.writeToSock(wolfMove, 2);
-*/		
-
 
 	}
 	

@@ -72,7 +72,7 @@ void readFunc(void* argsV){
     bool playerOne = *(bool*)args[1];
     Screen* main = (Screen*)args[2];
     Window* hero = (Window*)args[3];
-    Window* wolf = (Window*)args[4];
+    Window* enemy = (Window*)args[4];
     
     int j=0;
     
@@ -95,25 +95,50 @@ void readFunc(void* argsV){
             for(int i = 0; i < msg.size(); i++){
                 
                 char ch = msg[i];
+                if(ch == 'H'){
+                    ch = msg[++i];
+                    switch(ch){
+                        
+                    case 3: //Up Encoding
+                        main->move("up", hero);
+                        //ofs << "UP" << std::endl;
+                        break;
+                    case 2: //Down Encoding
+                        main->move("down", hero);
+                        //ofs << "down" << std::endl;
+                        break;
+                    case 4: //Left Encoding
+                        main->move("left", hero);
+                        //ofs << "left" << std::endl;
+                        break;
+                    case 5: //Right Encoding
+                        main->move("right", hero);
+                        //ofs << "right" << std::endl;
+                        break;
+                    }
+                }
                 
-                switch(ch){
-                    
-                case 3: //Up Encoding
-                    main->move("up", hero);
-                    //ofs << "UP" << std::endl;
-                    break;
-                case 2: //Down Encoding
-                    main->move("down", hero);
-                    //ofs << "down" << std::endl;
-                    break;
-                case 4: //Left Encoding
-                    main->move("left", hero);
-                    //ofs << "left" << std::endl;
-                    break;
-                case 5: //Right Encoding
-                    main->move("right", hero);
-                    //ofs << "right" << std::endl;
-                    break;
+                if (ch == 'E'){
+                    ch = msg[++i];
+                    switch(ch){
+                        
+                    case '0': //Up Encoding
+                        main->move("up", enemy);
+                        //ofs << "UP" << std::endl;
+                        break;
+                    case '1': //Down Encoding
+                        main->move("down", enemy);
+                        //ofs << "down" << std::endl;
+                        break;
+                    case '2': //Left Encoding
+                        main->move("left", enemy);
+                        //ofs << "left" << std::endl;
+                        break;
+                    case '3': //Right Encoding
+                        main->move("right", enemy);
+                        //ofs << "right" << std::endl;
+                        break;
+                    }
                 }
             }
         }
