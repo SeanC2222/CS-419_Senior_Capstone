@@ -9,6 +9,7 @@ Window::Window(int height, int width, int xStart, int yStart) : height(height), 
     this->win.push_back( newwin(height, width, x, y) );
     this->nextWindowIndex = this->currentWindowIndex = 0;
     this->top = this->win[0];
+    this->type = WinType::BACKGROUND;
 }
 
 /* Creates a new window with the text from a file.
@@ -16,15 +17,17 @@ Window::Window(int height, int width, int xStart, int yStart) : height(height), 
                                     * For the color thing...pass in a COLOR_PAIR ? or do we build these things with 
                                     * two colors (first and last char in a row and col is black for an outline maybe) or what?
  */
-Window::Window(string filename, int xStart, int yStart) : x(xStart), y(yStart)
+Window::Window(string filename, int xStart, int yStart, WinType type) : x(xStart), y(yStart), type(type)
 {
-    this->win.push_back( getWinFromFile(filename, xStart, yStart, COLOR_PAIR(2)) );
+    WINDOW* newWindow = getWinFromFile(filename, xStart, yStart, COLOR_PAIR(2));
+    this->win.push_back( newWindow );
+    getmaxyx(newWindow, this->height, this->width);
     this->nextWindowIndex = this->currentWindowIndex = 0;
     this->top = this->win[0];
 }
 
 
-                                                                        /***NEED TO SET A FIXED COLOR SCHEME, UPDATE THIS***/
+                                                                         /***NEED TO SET A FIXED COLOR SCHEME, UPDATE THIS***/
 WINDOW* Window::appendAnimation(string filename)
 {
     WINDOW* frame = getWinFromFile(filename, this->x, this->y, (COLOR_PAIR(2)));
@@ -125,7 +128,7 @@ Window* Window::getBackground(int level, int k=0)
 //MARTHA: To grab background from file in Images
 Window* Window::getBackgroundFromFile(int k)
 {
-    string path = "./Images/bg1.txt";
+    string path = "./Images/background.txt";
     ifstream inputFile;
     inputFile.open(path);
     
@@ -154,20 +157,22 @@ Window* Window::getBackgroundFromFile(int k)
         inputFile.seekg(0);             // Return to the beginning of the file
 
 
+
         wattron(bgFromFile, COLOR_PAIR(1));
         for (int r=0; r<screenYSize; r++)
         { // Get the file and put it in the window
-	        string line1(cols, ' ');	
+	        //string line1(cols, ' ');	                ***Removed by Dylan...do we need this?
             if( getline(inputFile, line) ){
                 string temp=line;
 	  	        line.erase(line.begin(), line.begin()+k);
 		        temp.erase(temp.begin()+k, temp.end());
 		        line.insert(line.length()-1,temp);
-		        mvwprintw(bgFromFile, r, 0, line1.c_str());
+		        //mvwprintw(bgFromFile, r, 0, line1.c_str());     *** and this? it works without it.
                 mvwprintw(bgFromFile, r, 0, line.c_str());
 	        }
         }        
         wattroff(bgFromFile, COLOR_PAIR(1));
+        wrefresh(bgFromFile);
         return bg;
     }
 }
@@ -213,10 +218,66 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
         
         wbkgd(windowFromFile, colorScheme);        // Fills in the background color where spaces weren't entered 
 
+        unsigned int currentScheme = colorScheme;
         wattron(windowFromFile, colorScheme);
-        while( getline(inputFile, line) )        // Get the file and put it in the window
-            mvwprintw(windowFromFile, rows++, 0, line.c_str()); 
-        wattroff(windowFromFile, colorScheme);
+        int j = 0;
+        while( getline(inputFile, line) ){        // Get the file and put it in the window
+            j=0;
+            for (unsigned int i=0; i<line.length(); i++, j++){
+                if( (int)line[i] > 47 || (int)line[i] < 58 )     // If values are ASCII numbers
+                {
+                    switch((int)line[i])
+                    {       // 0 in file, the rest of the numbers follow
+                        case 48: 
+                                j--;
+                                wattroff(windowFromFile, currentScheme);    // just swaps with previous scheme
+                                wattron(windowFromFile, colorScheme);                            
+                                break;
+                        case 49: j--;
+                                currentScheme = COLOR_PAIR(1);
+                                wattron(windowFromFile, COLOR_PAIR(1));
+                                break;
+                        case 50: j--;
+                                currentScheme = COLOR_PAIR(2);
+                                wattron(windowFromFile, COLOR_PAIR(2));
+                                break;
+                        case 51: j--;
+                                currentScheme = COLOR_PAIR(3);
+                                wattron(windowFromFile, COLOR_PAIR(3));
+                                break;
+                        case 52:j--;
+                                currentScheme = COLOR_PAIR(4);
+                                wattron(windowFromFile, COLOR_PAIR(4));
+                                break;
+                        case 53:j--;
+                                currentScheme = COLOR_PAIR(5);
+                                wattron(windowFromFile, COLOR_PAIR(5));
+                                break;
+                        case 54: j--;
+                                currentScheme = COLOR_PAIR(6);
+                                wattron(windowFromFile, COLOR_PAIR(6));
+                                break;
+                        default:
+                            mvwaddch(windowFromFile, rows, j, line[i]);
+                    }
+                }
+                else
+                    mvwaddch(windowFromFile, rows, j, line[i]);
+
+            //   if (line[i]=='w'||line[i]=='L'){ //apply specific colors for specific characters
+            //   wattron(windowFromFile, COLOR_PAIR(3));
+            //   }
+            //   else{
+            //   wattron(windowFromFile, COLOR_PAIR(2));
+            //   char * ptr1=&line[i];
+            //   mvwaddch(windowFromFile, rows, i, line[i]);
+            //   }
+            }
+        rows++;
+        }
+        //mvwprintw(windowFromFile, rows++, 0, line.c_str());
+
+        wattroff(windowFromFile, currentScheme);
        
         return windowFromFile;
     }
@@ -235,6 +296,11 @@ void Window::rotate()
 void Window::setPanelIndex(int PanelNum)
 {
     this->pIdx = PanelNum;
+}
+
+int Window::getBasePanelIndex()
+{
+    return this->pIdx;
 }
 
 int Window::getPanelIndex()
@@ -283,4 +349,9 @@ WINDOW* Window:: getTop()
 bool Window::isAnimated()
 {
     return (this->win.size() > 1);
+}
+
+WinType Window::getWinType()
+{
+    return this->type;
 }

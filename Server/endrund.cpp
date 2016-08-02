@@ -100,6 +100,7 @@ int main(int argc, char* argv[]){
 		std::cout << "Current HighScore : " << currentHighscore << std::endl;
 		return 0;
 	} else {
+		usleep(20000);
 		if(!kill(pid, 0)){
 			std::cout << "endrund: Process started as PID: " << pid << std::endl;
 			std::ofstream pidLog("logs/endrund/endrund.pid", std::ofstream::out);
@@ -118,6 +119,7 @@ void usr1Action(int signalNumber){
 }
 
 void termAction(int signalNumber){
+		currentHighscore = getpid();
 		union sigval data = {currentHighscore};
 		sigqueue(getppid(), SIGUSR2, data);
 		exit(0);
@@ -128,7 +130,7 @@ void usr2Action(int signalNumber,  siginfo_t* data, void* other){
 		currentHighscore = data->si_value.sival_int;
 		int fd = open("logs/endrund/endrund.hs", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 		if(fd != -1){
-			write(fd, &data->si_value.sival_int, sizeof(int));
+			int n = write(fd, &data->si_value.sival_int, sizeof(int));
 			close(fd);
 		}
 	}
@@ -370,14 +372,35 @@ void playGame(std::pair<int,int> player) {
 	int lowFD  = (player1.getFD() > player2.getFD()) ? player2.getFD() : player1.getFD();
 
 	struct timeval timeout;
+	std::string p1msg, p2msg;
 	
 	while(player1.isOpen() && player2.isOpen()){
 
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
+		
 		FD_SET(player1.getFD(), &players);
 		FD_SET(player2.getFD(), &players);
-
+		
+		select(highFD+1, &players, NULL, NULL, &timeout);
+		if(FD_ISSET(player1.getFD(), &players)){
+			p1msg = player1.readFromSock(512);
+			if(p1msg.size() == 0){
+				player1.Close();
+			}
+			player1.writeToSock(p1msg, 512);
+			player2.writeToSock(p1msg, 512);
+		}
+		
+		if(FD_ISSET(player2.getFD(), &players)){
+			p2msg = player2.readFromSock(512);
+			if(p2msg.size() == 0){
+				player2.Close();
+			}
+			player1.writeToSock(p2msg, 512);
+			player2.writeToSock(p2msg, 512);
+		}
+/*
 		int wolfDir = rand() % 4;
 		std::string wolfMove;
 		if(wolfDir == 0){
@@ -392,29 +415,8 @@ void playGame(std::pair<int,int> player) {
 
 		player1.writeToSock(wolfMove, 2);
 		player2.writeToSock(wolfMove, 2);
-		
-		std::string p1msg, p2msg;		
-		select(highFD+1, &players, NULL, NULL, &timeout);
-		
-		if(FD_ISSET(player1.getFD(), &players)){
-			p1msg = player1.readFromSock(512);
-		}
-		
-		if(FD_ISSET(player2.getFD(), &players)){
-			p2msg = player2.readFromSock(512);
-		}
-		
-		if(p1msg.size() > 0){
-			player2.writeToSock(p1msg, 512);
-		} else {
-			player2.writeToSock("-1", 512);
-		}
+*/		
 
-		if (p2msg.size() > 0){
-			player1.writeToSock(p2msg, 512);
-		} else {
-			player1.writeToSock("-1", 512);			
-		}
 
 	}
 	

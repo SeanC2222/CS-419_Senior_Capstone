@@ -3,11 +3,11 @@ CXX = g++
 #Use latest Compiler Tool Chain
 CXXFLAGS = -std=c++11
 #Show Warnings
-CXXFLAGS += -Wall
+#CXXFLAGS += -Wall
 #Optimization
 CXXFLAGS += -O3
 #Strict ISO compilation rules
-CXXFLAGS += -pedantic-errors
+#CXXFLAGS += -pedantic-errors
 #Debugging Flag for GDB (DEFAULT COMMENTED OUT)
 #CXXFLAGS += -g
 

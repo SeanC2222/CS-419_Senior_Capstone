@@ -53,6 +53,7 @@ public:
    int getFD() const;
    int getPortNumber() const;
    int isOpen() const;
+   int Close();
    struct addrinfo getAddr() const;
    struct addrinfo getHints() const;
 

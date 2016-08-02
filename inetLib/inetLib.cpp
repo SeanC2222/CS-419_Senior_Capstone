@@ -246,6 +246,10 @@ inetSock::~inetSock(){
 int inetSock::getFD() const {return this->sFD;}
 int inetSock::getPortNumber() const {return this->pNo;}
 int inetSock::isOpen() const {return this->open;}
+int inetSock::Close(){
+   this->open = close(this->sFD);
+   return this->open;
+}
 struct addrinfo inetSock::getAddr() const {return this->addr;}
 struct addrinfo inetSock::getHints() const{return this->hints;}
 

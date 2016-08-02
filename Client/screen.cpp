@@ -15,11 +15,16 @@ void Screen::init()
         exit(1);
     }
     start_color();
+    //use_default_colors();
     
     // Should probably put these in a function later: initColors(int level)
     init_pair(1, COLOR_GREEN, COLOR_YELLOW);    
-    init_pair(2, COLOR_BLACK, COLOR_YELLOW);
-    
+    init_pair(2, COLOR_MAGENTA, COLOR_YELLOW);
+    init_pair(3, COLOR_RED, COLOR_YELLOW);
+    init_pair(4, COLOR_WHITE, COLOR_YELLOW);
+    init_pair(5, COLOR_BLUE, COLOR_YELLOW);
+    init_pair(6, COLOR_WHITE, COLOR_MAGENTA);
+
 
     cbreak();                   // Don't wait for user to hit 'enter'
     noecho();                   // Don't display user input on screen
@@ -29,7 +34,11 @@ void Screen::init()
    //this->bgWindow = Window::getBackground(1,0);   // Get the first level's background and set it to panel level 0
     this->bgWindow = Window::getBackgroundFromFile(0);
     addToPanelLevel(this->bgWindow);
+    loadDeathAnimations();
     this->level = 1;
+    this->bgIndex= 0;       // Scroll the bg file starting at col 0
+    deathAnimation = NULL;
+    dead = false;
     
     // I'm thinking maybe we put createBackgroundElements(int level)
     // and createOpponents(int level) in this module and then call them here...
@@ -39,13 +48,127 @@ void Screen::init()
    so it will wait for a character input, if it doesn't
    happen in REFRESH_RATE time, it just refreshes the screen
 */   
-void Screen::update()
+void Screen::update(int frame)
 {
     // Scroll the background here
-    // Check for input and timeout and doUpdate() if none entered
-        //halfdelay(x/10 seconds --probably needs to be an init function somewhere else)
+    scrollBg(bgIndex++);
+    if (bgIndex==2042)  //max column size of bg file and should be updated accordingly
+        bgIndex=0;
+    
+    // Check for collision and play the appropriate animation
+    if(!dead)
+        checkIfDead();
+
+    // If dead and the whole death animation has played out        
+    if( dead )
+    {
+        if(frame%5 == 0)
+        {           // The animation x, y, are ignored because it will play at the current location of deathAnimation
+            playAnimation(deathAnimation, 0, 0);
+            if( deathAnimation->getPanelIndex() == deathAnimation->getBasePanelIndex() )
+            {
+                usleep(3000000);
+                // Show something on the screen? call another function?
+                exit(0);
+            }
+        }
+    }
+    
+    // Move any active (on screen) windows
+    if( !dead )
+    {
+        for( Window* w : activeWindows)
+            move("left", w);
+    }
+        
     update_panels();
     doupdate();
+}
+
+/**
+ * Initialization method to load the death animation files into the deathAnimations map
+ */
+
+void Screen::loadDeathAnimations()
+{
+    vector <string> mauledFiles {"mauled1.txt","mauled2.txt","mauled3.txt","mauled4.txt","mauled5.txt","mauled6.txt"};
+    vector <string> fallingFiles { "fall1.txt" , "fall2.txt" , "fall3.txt" , "fall4.txt" , "fall5.txt" };
+    
+    deathAnimations["mauled"] = loadImages(mauledFiles, WinType::DEATH);
+    deathAnimations["fall"] = loadImages(fallingFiles, WinType::DEATH);
+}
+
+
+
+void Screen::putOnScreen(Window* image, int X, int Y)
+{
+    image->setX(X);
+    image->setY(Y);
+    move_panel( this->panelLevel[ image->getPanelIndex() ] , Y, X );
+    show_panel( this->panelLevel[ image->getPanelIndex() ] );
+    activeWindows.push_back(image);
+}
+
+void Screen::removeFromScreen(Window* image)
+{
+    hide_panel( this->panelLevel[image->getPanelIndex()] );
+    for(unsigned int i=0; i<activeWindows.size(); i++)
+    {
+        if(activeWindows[i] == image)
+        {
+            activeWindows.erase( activeWindows.begin() + i );   // Ridiculous syntax...you must use an iterator?!
+            return;
+        }
+    }
+}
+
+void Screen::checkIfDead()
+{
+    int herox1 = hero->getX();
+    int herox2 = herox1+hero->getWidth();
+    int heroy1 = hero->getY();
+    int heroy2 = heroy1 + hero->getHeight();
+    
+    for( Window* screenElement :  activeWindows )
+    {
+        if( screenElement->getWinType() == WinType::ENEMY )
+        {
+            if(screenElement->getX() > herox1 && screenElement->getX() < herox2 &&
+                screenElement->getY() > heroy1 && screenElement->getY() < heroy2)
+            {
+                dead = true;
+                hide_panel( panelLevel[hero->getPanelIndex()] );
+                deathAnimation = deathAnimations["mauled"];
+                deathAnimation->setX(hero->getX());
+                deathAnimation->setY(hero->getY());
+                return;
+            }
+        }
+        else if( screenElement->getWinType() == WinType::PIT )
+        {
+            if(screenElement->getX() > herox1 && screenElement->getX() < herox2 &&
+                screenElement->getY() > heroy1 && screenElement->getY() < heroy2)
+            {
+                dead = true;
+                hide_panel( panelLevel[hero->getPanelIndex()] );
+                deathAnimation = deathAnimations["fall"];
+                deathAnimation->setX(screenElement->getX()+4);
+                deathAnimation->setY(screenElement->getY()+1);
+                return;        
+            }
+        }
+        //else if( screenElement->getWinType() == WinType::WALL )
+    }
+}
+
+
+
+Window* Screen::loadHero( vector<string> filenames, int x, int y )
+{
+    Window* heroWindow = loadImages(filenames, WinType::HERO);
+    this->hero = heroWindow;
+    wrefresh(heroWindow->getTop());
+    return heroWindow;
 }
 
 void Screen::addToPanelLevel(Window* image)      // There is also a user pointer for each panel I think...used to store anything if we need it
@@ -58,11 +181,12 @@ void Screen::addToPanelLevel(Window* image)      // There is also a user pointer
 /* Load an animation from an array of filenames, in the order that you want the 
  * animation to proceed.  Actually could be used for all image files...
  */
-Window* Screen::loadImages(vector<string> filenames, int xPos, int yPos)
+Window* Screen::loadImages(vector<string> filenames, WinType type)
 {
-    Window* baseWindow = new Window(filenames[0], xPos, yPos);
+    Window* baseWindow = new Window(filenames[0], 200, 200, type);
     baseWindow->setPanelIndex( panelLevel.size() );                  // Noting the Index of the panel location in the Window class
     this->panelLevel.push_back( new_panel(baseWindow->getTop()) );
+    hide_panel( this->panelLevel[panelLevel.size()-1] );             // Hide the panel, putOnScreen() shows it.
     
     // For multiple files (only happens for animations)
     for(unsigned int i = 1; i < filenames.size(); i++) 
@@ -84,36 +208,67 @@ Window* Screen::loadImages(vector<string> filenames, int xPos, int yPos)
     It's not going to work though, I don't think a panel can be rendered off-screen, but 
     a window can, so one option is to move the window off the panel...
 */
-int Screen::move(std::string direction, Window* baseWindow, bool bgElement)
+void Screen::move(std::string direction, Window* baseW)
 {
+    if(dead)  return;     // Don't move anything if he's dying
+    
     int levelSpeed = this->level;
 
-    int xPos = baseWindow->getX();
-    int yPos = baseWindow->getY();
+    int xPos = baseW->getX();
+    int yPos = baseW->getY();
     
-    // If it does, make the current image hidden, make the next image visible and change the top Window
-    if(baseWindow->isAnimated())
+    // 'Play' the next animation frame in the same spot (we will move it below)
+    if(baseW->isAnimated())
+        playAnimation(baseW, xPos, yPos);
+
+    if(direction == "left") 
     {
-        hide_panel( panelLevel[ baseWindow->getPanelIndex() ] );                // Hide the top window
-        baseWindow->rotate();                                                   // Changes the top window index
-        show_panel( panelLevel[ baseWindow->getPanelIndex() ] );                //  Shows the NEW top window
+        baseW->setX(xPos - 2*levelSpeed);
+        if( (baseW->getWinType() == WinType::HERO) && ( baseW->getX() < 0) )
+            baseW->setX(xPos + 2*levelSpeed);
+        else if(baseW->getX() + baseW->getWidth() <= 0)     // Didn't add this check for the others, not sure if
+        {                                                   // we plan to make thing move up or down off the screen
+            removeFromScreen(baseW);                        // but it's simple to add later if we decide to.
+            return;     // Don't bother moving the panel
+        }
     }
-
-    
-    if(direction == "left")
-        if( (bgElement == false && xPos > 0 ) || bgElement == true )                   // Only move left if not at the left edge
-            baseWindow->setX(xPos - 2*levelSpeed);
-    if( direction == "right" && (xPos + baseWindow->getWidth()  < bgWindow->getWidth()) )          
-        baseWindow->setX(xPos + 2*levelSpeed);
-    if(direction == "up" && yPos > 0 )                              
-        baseWindow->setY(yPos - levelSpeed);
-    if(direction == "down" && (yPos + baseWindow->getHeight() < bgWindow->getHeight()) )          
-                baseWindow->setY(yPos + levelSpeed );
-
-    move_panel( this->panelLevel[ baseWindow->getPanelIndex() ] , yPos, xPos );
-    
-    return (xPos + baseWindow->getWidth());
+    if(direction == "right")
+    {
+        baseW->setX(xPos + 2*levelSpeed);
+        if( (baseW->getWinType() == WinType::HERO) && ( baseW->getX() + baseW->getWidth() > bgWindow->getWidth()) )
+            baseW->setX(xPos - 2*levelSpeed);
+    }
+    if(direction == "up")   
+    {
+        baseW->setY(yPos - levelSpeed);
+        if( (baseW->getWinType() == WinType::HERO) && ( baseW->getY() < 0 ) )
+            baseW->setY(yPos + levelSpeed);
+    }
+    if(direction == "down") 
+    {
+        baseW->setY(yPos + levelSpeed );
+        if( (baseW->getWinType() == WinType::HERO) && (baseW->getY() + baseW->getHeight() > bgWindow->getHeight()) )
+            baseW->setY(yPos - levelSpeed );
+    }
+    move_panel( this->panelLevel[ baseW->getPanelIndex() ] , yPos, xPos );
 }
+
+
+/**
+ * Rotates to the next image in the animation and moves the panel to the scpecified position.
+ */
+void Screen::playAnimation(Window* baseWindow, int x, int y)
+{
+    hide_panel( panelLevel[ baseWindow->getPanelIndex() ] );                // Hide the top window
+    baseWindow->rotate();                                                   // Changes the top window index
+    show_panel( panelLevel[ baseWindow->getPanelIndex() ] );                //  Shows the NEW top window
+    if (baseWindow == deathAnimation)
+        move_panel( this->panelLevel[ baseWindow->getPanelIndex() ], deathAnimation->getY(), deathAnimation->getX() );
+    else
+        move_panel( this->panelLevel[ baseWindow->getPanelIndex() ], y, x );
+}
+
+
 
 /* Dylan's Scroll Method 
 void Screen::scrollBG(Window* bgWindow) // I'm thinking later change params to an array of Window pointers for all objects in the background
@@ -153,10 +308,10 @@ void Screen::scrollBG(Window* bgWindow) // I'm thinking later change params to a
 void Screen::scrollBg(int j)
 {
     //this->bgWindow = Window::getBackground(1,j);//Background will start reading from column j
+    delete this->bgWindow;
     this->bgWindow = Window::getBackgroundFromFile(j);
     this->bgWindow->setPanelIndex(0);
     replace_panel(this->panelLevel[0],this->bgWindow->getTop());
-    update();
 }
 
 

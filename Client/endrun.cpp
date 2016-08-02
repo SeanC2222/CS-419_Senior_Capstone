@@ -1,18 +1,174 @@
 //C/Unix Libraries
-#include <unistd.h> //Read/Write, Child Processes
-#include <ncurses.h>
-#include <signal.h> //Handle Signals 
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/types.h>
+#include <unistd.h>     //Read/Write, Child Processes
+#include <ncurses.h>    //Graphics Handling
+#include <signal.h>     //Handle Signals 
+#include <stdlib.h>     //Open/Close/etc.
+#include <sys/time.h>   //System Time
+#include <sys/types.h>  //System Types
+#include <fcntl.h>  //Non-Blocking Socket
 //C++ Libraries
 #include <iostream> //IO Handling
 #include <vector>   //Data Container
 #include <string>   //Input Container
+#include <fstream>  //Debugging with nCurses
+#include <chrono>   //Timer for setting Frame Rate
+#include <thread>   //Threads for read/write functions
 
 //Custom Libraries
 #include "../inetLib/inetLib.hpp"
 #include "screen.hpp"
+#include "window.hpp"
+
+
+//Global Flag to tell threads to shutdown
+sig_atomic_t threadEnd = 0;
+
+//Signal handler for signals to shutdown
+void intAction(int sigNum){
+   threadEnd = 1;
+}
+
+//Sets Signal Handlers for passed signal
+void setSignalActions(int setSig){
+    switch(setSig){
+    
+        case SIGINT:
+            struct sigaction act;
+            act.sa_handler = intAction;
+            act.sa_flags = 0;
+            sigaction(SIGINT, &act, NULL);
+            break;
+        
+        case SIGTERM:
+            struct sigaction term;
+            term.sa_handler = intAction;
+            term.sa_flags = 0;
+            sigaction(SIGTERM, &term, NULL);
+            break;
+        
+        case 0:
+            struct sigaction nah;
+            nah.sa_handler = SIG_IGN;
+            nah.sa_flags = 0;
+            sigaction(SIGINT, &nah, NULL);
+            sigaction(SIGTERM, &nah, NULL);
+            sigaction(SIGSTOP, &nah, NULL);
+            break;
+        default:
+            break;
+    }
+    
+    return;
+}
+
+//Main Game/Graphics Update Function
+void readFunc(void* argsV){
+
+    setSignalActions(SIGINT);
+    setSignalActions(SIGTERM);
+    
+    void** args = (void**)argsV;
+    inetSock cliSock(*(inetSock*)args[0]);
+    bool playerOne = *(bool*)args[1];
+    Screen* main = (Screen*)args[2];
+    Window* hero = (Window*)args[3];
+    Window* wolf = (Window*)args[4];
+    
+    int j=0;
+    
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    
+    int num = rand() % 20;
+    
+    //std::ofstream ofs ("player" + std::to_string(num) + ".txt", std::ofstream::out);
+    
+    double backgroundTracker = 0.0;
+    double backgroundUpdatePoint = 15.0;
+    double rate = 1.0;
+    
+    int frame = 1;
+    
+    while(cliSock.isOpen() && !threadEnd){
+        std::string msg = cliSock.readFromSock(512);
+        if(msg.size() > 0){
+            //ofs << msg << std::endl;
+            for(int i = 0; i < msg.size(); i++){
+                
+                char ch = msg[i];
+                
+                switch(ch){
+                    
+                case 3: //Up Encoding
+                    main->move("up", hero);
+                    //ofs << "UP" << std::endl;
+                    break;
+                case 2: //Down Encoding
+                    main->move("down", hero);
+                    //ofs << "down" << std::endl;
+                    break;
+                case 4: //Left Encoding
+                    main->move("left", hero);
+                    //ofs << "left" << std::endl;
+                    break;
+                case 5: //Right Encoding
+                    main->move("right", hero);
+                    //ofs << "right" << std::endl;
+                    break;
+                }
+            }
+        }
+
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> tDur = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        
+        if(tDur.count() > ((double)1.0/60.0)){
+            t1 = t2;
+            backgroundTracker += rate;
+            if(backgroundTracker >= backgroundUpdatePoint){
+                j++;
+                backgroundTracker = 0;
+                if (j==175){  //max column size of bg file and should be updated accordingly
+                    j=0;
+                    backgroundUpdatePoint -= backgroundUpdatePoint*rate;
+                    rate *= .9;
+                }
+            }
+            main->scrollBg(j);
+            main->update(frame);
+            frame++;
+        }
+    }
+    return;
+}
+
+void writeFunc(void* argsV){
+    
+    void** args = (void**)argsV;
+    inetSock cliSock(*(inetSock*)args[0]);
+    bool playerOne = *(bool*)args[1];
+    
+    int num = rand() % 20;
+    //std::ofstream ofs (std::to_string(num) + "player.txt", std::ofstream::out);
+    
+    std::string msg;
+    
+    char ch;
+    while(cliSock.isOpen() && !threadEnd){
+        msg = "";
+        if( (ch = getch()) != ERR){
+            if(playerOne && (ch == 2 || ch == 3)){
+                msg += ch;
+                cliSock.writeToSock(msg, msg.size());
+            } else if (!playerOne && (ch == 4 || ch == 5)){
+                msg += ch;
+                cliSock.writeToSock(msg, msg.size());
+            }
+            //ofs << msg << " " << (int)msg[0] << std::endl;
+        } else {
+            msg = "";
+        }
+    }
+}
 
 int main(int argc, char* argv[]){
     
@@ -30,128 +186,55 @@ int main(int argc, char* argv[]){
 
     //Create client socket and connect to server
     inetSock cliSock(host, port, connPort);
+
+    std::cout << "Waiting on other player to connect..." << std::endl;
     
     int playerNum = atoi(cliSock.readFromSock(2).c_str());
     bool playerOne = (playerNum == 1) ? true : false;
     
-    struct timeval timeout;
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
+    std::cout << "Connected as player " << playerNum << std::endl;
+    std::cout << "Starting in 3..." << std::endl;
+    usleep(1000000);
+    std::cout << "2..." << std::endl;
+    usleep(1000000);
+    std::cout << "1..." << std::endl;
+    usleep(1000000);
     
-    fd_set readfds, writefds;
-    FD_ZERO(&readfds);
-    FD_ZERO(&writefds);
-    FD_SET(0, &readfds);    //Adds STDIN to readfds
-    FD_SET(cliSock.getFD(), &writefds);
-    
-    std::string msg;
     Screen main = Screen();
     main.init();
 
     vector <string> wolfFiles {"wolfy.txt", "wolfy2.txt" };
     vector <string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
-    Window* hero = main.loadImages(heroFiles, 10,10);
 
-    Window* wolf = main.loadImages(wolfFiles, 150, 10);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
+    Window* hero = main.loadHero(heroFiles, 10,10);
+    Window* wolf = main.loadImages(wolfFiles, WinType::ENEMY);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
+    main.putOnScreen(wolf, 150, 10);
 
-    main.update();
-    wchar_t ch;
-    msg = " ";
+    main.update(0);
 
     int j=0;
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
-    timeout(100);
+    timeout(1000000);
 
-    while(cliSock.isOpen()){
-        
-        if( (ch = getch()) != ERR){
-            msg[0] = ch;
-        } else {
-            msg[0] = ' ';
-        }
-        int n = cliSock.writeToSock(msg, 2);
+    wchar_t ch;
+    std::string msg; 
+    
+    fcntl(cliSock.getFD(), F_SETFL, fcntl(cliSock.getFD(), F_GETFL,0) | O_NONBLOCK);
 
-        /*added by martha*/
-        main.scrollBg(j);
-        j++;
-        if (j==175)  //max column size of bg file and should be updated accordingly
-	        j=0;
-        /*added by martha*/
-        int wolfDir = atoi(cliSock.readFromSock(2).c_str());
-        
-        switch(wolfDir){
-            case 0: 
-                main.move("left", wolf, true);
-                break;
-            case 1:
-                main.move("right", wolf, true);
-                break;
-            case 2:
-                main.move("down", wolf, true);
-                break;
-            case 3:
-                main.move("up", wolf, true);
-                break;
-        }
+    void** args = (void**)malloc(5 * sizeof(void*));
+    args[0] = (void*)&cliSock;
+    args[1] = (void*)&playerOne;
+    args[2] = (void*)&main;
+    args[3] = (void*)hero;
+    args[4] = (void*)wolf;
 
-        if(playerOne){
-            switch(ch)
-            {
-                case KEY_UP:
-                    main.move("up", hero, false);
-                    break;
-                case KEY_DOWN:
-                    main.move("down", hero, false);
-                    break;
-            }
-            ch = cliSock.readFromSock(2)[0];
-        } else {
-            switch(ch)
-            {
-            case KEY_LEFT:
-                main.move("left", hero, false);
-                break;
-            case KEY_RIGHT:
-                main.move("right", hero, false);
-                break;
-            }
-            ch = cliSock.readFromSock(2)[0];
-        }
-        
-        switch(ch)
-        {
-            case KEY_LEFT:
-                main.move("left", hero, false);
-                break;
-            case KEY_RIGHT:
-                main.move("right", hero, false);
-                break;
-            case KEY_UP:
-                main.move("up", hero, false);
-                break;
-            case KEY_DOWN:
-                main.move("down", hero, false);
-                break;
-        }
-        
-        main.update();
-    }
+    std::thread tRead(readFunc, (void*)args);
+    std::thread tWrite(writeFunc, (void*)args);
+    tRead.join();
+    tWrite.join();
+    free(args);
     main.cleanup();
     endwin();
     return 0;
-/*        FD_SET(0, &readfds);    //Adds STDIN to readfds
-        FD_SET(cliSock.getFD(), &writefds);
-        select(5, &readfds, NULL, NULL, NULL);
-
-        msg = "";
-        if(FD_ISSET(0, &readfds)){ 
-            char c;
-            while( (c = getch()) != ERR && msg.size() < 10){
-                msg += c;
-            }
-            int n = cliSock.writeToSock(msg, msg.size()+1);
-            std::cout << "n = " << n << ", msg = " << msg << std::endl;
-        }
-*/
 }
