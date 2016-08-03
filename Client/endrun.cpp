@@ -64,15 +64,30 @@ void setSignalActions(int setSig){
 //Main Game/Graphics Update Function
 void readFunc(void* argsV){
 
+    Screen main = Screen();
+    main.init();
+
+    vector <string> enemyFiles {"wolfy.txt", "wolfy2.txt" };
+    vector <string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
+
+    Window* hero = main.loadHero(heroFiles, 10,10);
+    Window* enemy = main.loadImages(enemyFiles, WinType::ENEMY);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
+    
+    main.putOnScreen(hero, 10, 10);
+    main.putOnScreen(enemy, 150, 10);
+
+    main.update(0);
+
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+    timeout(1000000);
+
     setSignalActions(SIGINT);
     setSignalActions(SIGTERM);
     
     void** args = (void**)argsV;
     inetSock cliSock(*(inetSock*)args[0]);
     bool playerOne = *(bool*)args[1];
-    Screen* main = (Screen*)args[2];
-    Window* hero = (Window*)args[3];
-    Window* enemy = (Window*)args[4];
     
     int j=0;
     
@@ -100,19 +115,19 @@ void readFunc(void* argsV){
                     switch(ch){
                         
                     case 3: //Up Encoding
-                        main->move("up", hero);
+                        main.move("up", hero);
                         //ofs << "UP" << std::endl;
                         break;
                     case 2: //Down Encoding
-                        main->move("down", hero);
+                        main.move("down", hero);
                         //ofs << "down" << std::endl;
                         break;
                     case 4: //Left Encoding
-                        main->move("left", hero);
+                        main.move("left", hero);
                         //ofs << "left" << std::endl;
                         break;
                     case 5: //Right Encoding
-                        main->move("right", hero);
+                        main.move("right", hero);
                         //ofs << "right" << std::endl;
                         break;
                     }
@@ -123,19 +138,19 @@ void readFunc(void* argsV){
                     switch(ch){
                         
                     case '0': //Up Encoding
-                        main->move("up", enemy);
+                        main.move("up", enemy);
                         //ofs << "UP" << std::endl;
                         break;
                     case '1': //Down Encoding
-                        main->move("down", enemy);
+                        main.move("down", enemy);
                         //ofs << "down" << std::endl;
                         break;
                     case '2': //Left Encoding
-                        main->move("left", enemy);
+                        main.move("left", enemy);
                         //ofs << "left" << std::endl;
                         break;
                     case '3': //Right Encoding
-                        main->move("right", enemy);
+                        main.move("right", enemy);
                         //ofs << "right" << std::endl;
                         break;
                     }
@@ -158,11 +173,14 @@ void readFunc(void* argsV){
                     rate *= .9;
                 }
             }
-            main->scrollBg(j);
-            main->update(frame);
+            main.scrollBg(j);
+            main.update(frame);
             frame++;
         }
     }
+    
+    main.cleanup();
+    endwin();
     return;
 }
 
@@ -225,41 +243,18 @@ int main(int argc, char* argv[]){
     std::cout << "1..." << std::endl;
     usleep(1000000);
     
-    Screen main = Screen();
-    main.init();
 
-    vector <string> wolfFiles {"wolfy.txt", "wolfy2.txt" };
-    vector <string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
-
-    Window* hero = main.loadHero(heroFiles, 10,10);
-    Window* wolf = main.loadImages(wolfFiles, WinType::ENEMY);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
-    main.putOnScreen(wolf, 150, 10);
-
-    main.update(0);
-
-    int j=0;
-    int rows, cols;
-    getmaxyx(stdscr, rows, cols);
-    timeout(1000000);
-
-    wchar_t ch;
-    std::string msg; 
-    
     fcntl(cliSock.getFD(), F_SETFL, fcntl(cliSock.getFD(), F_GETFL,0) | O_NONBLOCK);
 
-    void** args = (void**)malloc(5 * sizeof(void*));
+    void** args = (void**)malloc(2 * sizeof(void*));
     args[0] = (void*)&cliSock;
     args[1] = (void*)&playerOne;
-    args[2] = (void*)&main;
-    args[3] = (void*)hero;
-    args[4] = (void*)wolf;
 
     std::thread tRead(readFunc, (void*)args);
     std::thread tWrite(writeFunc, (void*)args);
     tRead.join();
     tWrite.join();
     free(args);
-    main.cleanup();
-    endwin();
+
     return 0;
 }
