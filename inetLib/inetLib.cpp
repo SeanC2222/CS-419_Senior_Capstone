@@ -286,9 +286,11 @@ int inetSock::writeToSock(const char* data, const int size){
 
 std::string inetSock::readFromSock(const int size){
    char* data = (char*)malloc(size * sizeof(char));
+   bzero(data, size * sizeof(char));
    int readN = read(this->sFD, data, size);
+   std::string retString(data);
+   free(data);
    if(readN != 0){
-      std::string retString(data);
       return retString;
    } else {
       return "";

@@ -11,7 +11,7 @@
 #include <fstream>
 #include <vector>       //Data Container
 #include <string>       //Input Container
-
+#include <chrono>		//Time points
 //Custom Libraries
 #include "../inetLib/inetLib.hpp"
 
@@ -74,11 +74,6 @@ int main(int argc, char* argv[]){
 
 		std::ofstream logs("logs/endrund/endrundlog.txt", std::ofstream::out | std::ofstream::app);
 
-		std::ifstream hs("logs/endrund/endrund.hs", std::ifstream::in);
-		if(hs.good()){
-			hs >> currentHighscore;
-			hs.close();
-		}
 		//Daemon Functionality turned off...
 		//umask(0);
 		//pid_t sid = setsid();
@@ -119,7 +114,6 @@ void usr1Action(int signalNumber){
 }
 
 void termAction(int signalNumber){
-		currentHighscore = getpid();
 		union sigval data = {currentHighscore};
 		sigqueue(getppid(), SIGUSR2, data);
 		exit(0);
@@ -160,6 +154,14 @@ void setSignalActions(int setSig){
 		sdAct.sa_sigaction = usr2Action;
 		sdAct.sa_flags = SA_SIGINFO;
 		sigaction(SIGUSR2, &sdAct, NULL);
+		break;
+		
+	case SIGPIPE:
+		struct sigaction pAct;
+		pAct.sa_handler = SIG_IGN;
+		pAct.sa_sigaction = NULL;
+		pAct.sa_flags = 0;
+		sigaction(SIGPIPE, &pAct, NULL);
 		break;
 	
 	default:
@@ -249,9 +251,12 @@ int checkLogsPath(){
 	}
 	status = access("/logs/endrund/endrund.hs", F_OK);
 	if(status == 0){
-		std::ifstream hs("logs/endrund/endrund.hs", std::ifstream::in);
-		hs >> currentHighscore;
-		hs.close();
+		int hs = open("logs/endrund/endrund.hs", 0);
+		if(hs != -1){
+			read(hs, &currentHighscore, sizeof(int));
+			close(hs);
+		}
+
 	} else {
 		currentHighscore = 0;
 	}
@@ -283,7 +288,8 @@ int buildServer(std::string portno){
  
 	setSignalActions(SIGUSR1);
 	setSignalActions(SIGUSR2);
- 
+	setSignalActions(SIGPIPE);
+	
 	//Server Loop
 	while(1){
 		
@@ -315,6 +321,14 @@ int buildServer(std::string portno){
 				players.first = fd;
 				playerCount++;
 			} else {
+				//Ensure player 1 is still connected
+				int pipeCheck = send(players.first, "1", 2, 0);
+				//Second send to ensure connection
+				pipeCheck = send(players.first, "1", 2, 0);
+				if(pipeCheck == -1){
+					players.first = fd;
+					continue;
+				}
 				//Store player in second players slotj
 				players.second = fd;
 				playerCount++;
@@ -329,7 +343,7 @@ int buildServer(std::string portno){
 					//Sets SIGTERM actions for game process
 					setSignalActions(SIGTERM);
 					//Child Process
-					playGame(games[playerCount/2 -1]);
+					playGame(games[playerCount/2 - 1]);
 					exit(0);
 				//Else process is parent...
 				} else {
@@ -362,6 +376,20 @@ void playGame(std::pair<int,int> player) {
 	inetSock player1(player.first);
 	inetSock player2(player.second);
 	
+	std::string p1msg, p2msg;
+	
+	p1msg = player1.readFromSock(512);
+	p2msg = player2.readFromSock(512);
+	
+	if(p1msg == p2msg){
+		player1.writeToSock(p2msg, p2msg.size());
+		player2.writeToSock(p1msg, p1msg.size());
+	} else {
+		player1.writeToSock("stop", 4);
+		player2.writeToSock("stop", 4);
+		return;
+	}
+	
 	player1.writeToSock("1", 2);
 	player2.writeToSock("2", 2);
 	
@@ -369,13 +397,17 @@ void playGame(std::pair<int,int> player) {
 	FD_ZERO(&players);
 
 	int highFD = (player1.getFD() > player2.getFD()) ? player1.getFD() : player2.getFD();
-	int lowFD  = (player1.getFD() > player2.getFD()) ? player2.getFD() : player1.getFD();
 
 	struct timeval timeout;
-	std::string p1msg, p2msg;
+
 	
+    std::chrono::high_resolution_clock::time_point score1 = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point t1,t2;
+
 	while(player1.isOpen() && player2.isOpen()){
 
+		t1 = std::chrono::high_resolution_clock::now();
+		
 		p1msg = p2msg = "H";
 		
 		timeout.tv_sec = 1;
@@ -403,30 +435,35 @@ void playGame(std::pair<int,int> player) {
 			player2.writeToSock(p2msg, 512);
 		}
 		
-		int enemyMove = rand() % 100;
-		
-		if(enemyMove > 95){
-			int wolfDir = rand() % 5;
+		t2 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> enemy = std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
+	
+		if(enemy.count() > ((double) .99)){
+			int enemyDir = rand() % 7;
 			std::string enemyMove = "E";
 			//Up Encoding
-			if(wolfDir == 0){
-				enemyMove += "0";
+			if(enemyDir == 0){
+			      enemyMove += "0";
 			//Down Encoding
-			} else if (wolfDir == 1){
-				enemyMove += "1";
+			} else if (enemyDir == 1){
+			      enemyMove += "1";
 			//Right Encoding
-			} else if (wolfDir == 2){
-				enemyMove += "3";
+			} else if (enemyDir == 2){
+			      enemyMove += "3";
 			//Left Encoding
 			} else {
-				enemyMove += "2";
+			      enemyMove += "2";
 			}
-	
-			player1.writeToSock(wolfMove, 2);
-			player2.writeToSock(wolfMove, 2);
+			
+			player1.writeToSock(enemyMove, 2);
+			player2.writeToSock(enemyMove, 2);
 		}
-
-	}
 	
+		std::chrono::high_resolution_clock::time_point score2 = std::chrono::high_resolution_clock::now();
+	    std::chrono::duration<double> score = std::chrono::duration_cast<std::chrono::duration<double>>(score2 - score1);
+	
+		currentHighscore = (int)(100 * score.count());
+	}
+
 	termAction(0); //Passed int is irrelevant
 }
