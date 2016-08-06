@@ -83,15 +83,15 @@ int main(int argc, char* argv[]){
 		//}
 		close(STDIN_FILENO);
 		
-		std::streambuf *coutbuf = std::cout.rdbuf();
-		std::cout.rdbuf(logs.rdbuf());
-		std::streambuf *cerrbuf = std::cerr.rdbuf();
-		std::cerr.rdbuf(logs.rdbuf());
+		//std::streambuf *coutbuf = std::cout.rdbuf();
+		//std::cout.rdbuf(logs.rdbuf());
+		//std::streambuf *cerrbuf = std::cerr.rdbuf();
+		//std::cerr.rdbuf(logs.rdbuf());
 
 		buildServer(portno);
 
-		std::cout.rdbuf(coutbuf);
-		std::cerr.rdbuf(cerrbuf);
+		//std::cout.rdbuf(coutbuf);
+		//std::cerr.rdbuf(cerrbuf);
 		std::cout << "Current HighScore : " << currentHighscore << std::endl;
 		return 0;
 	} else {
@@ -124,7 +124,7 @@ void usr2Action(int signalNumber,  siginfo_t* data, void* other){
 		currentHighscore = data->si_value.sival_int;
 		int fd = open("logs/endrund/endrund.hs", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 		if(fd != -1){
-			int n = write(fd, &data->si_value.sival_int, sizeof(int));
+			int n = write(fd, &currentHighscore, sizeof(int));
 			close(fd);
 		}
 	}
@@ -159,7 +159,6 @@ void setSignalActions(int setSig){
 	case SIGPIPE:
 		struct sigaction pAct;
 		pAct.sa_handler = SIG_IGN;
-		pAct.sa_sigaction = NULL;
 		pAct.sa_flags = 0;
 		sigaction(SIGPIPE, &pAct, NULL);
 		break;
@@ -250,13 +249,13 @@ int checkLogsPath(){
 		}
 	}
 	status = access("/logs/endrund/endrund.hs", F_OK);
-	if(status == 0){
-		int hs = open("logs/endrund/endrund.hs", 0);
-		if(hs != -1){
-			read(hs, &currentHighscore, sizeof(int));
-			close(hs);
+	int hs = open("logs/endrund/endrund.hs", 0);
+	if(hs != -1){
+		int n = read(hs, &currentHighscore, sizeof(int));
+		if(n != sizeof(int)){
+			currentHighscore = 0;
 		}
-
+		close(hs);
 	} else {
 		currentHighscore = 0;
 	}
@@ -321,19 +320,12 @@ int buildServer(std::string portno){
 				players.first = fd;
 				playerCount++;
 			} else {
-				//Ensure player 1 is still connected
-				int pipeCheck = send(players.first, "1", 2, 0);
-				//Second send to ensure connection
-				pipeCheck = send(players.first, "1", 2, 0);
-				if(pipeCheck == -1){
-					players.first = fd;
-					continue;
-				}
 				//Store player in second players slotj
 				players.second = fd;
 				playerCount++;
 				//Store pair of players
 				games.push_back(players);
+				std::cout << "GOT PLAYERS: " << players.first << ", " << players.second << std::endl;
 				//Fork a game for players
 				pid_t pid = fork();
 				//If pid == 0, child = true, else child = false
@@ -375,23 +367,26 @@ void playGame(std::pair<int,int> player) {
 	//Creates dummy inetSockets to allow reading from file descriptors
 	inetSock player1(player.first);
 	inetSock player2(player.second);
+	std::string curHS = std::to_string(currentHighscore);
+	std::cout << curHS << std::endl;
+	
+	player1.writeToSock(curHS, curHS.size());
+	player2.writeToSock(curHS, curHS.size());
 	
 	std::string p1msg, p2msg;
 	
 	p1msg = player1.readFromSock(512);
 	p2msg = player2.readFromSock(512);
-	
+	std::cout << "got messages: " << p1msg << " | " << p2msg << std::endl;
 	if(p1msg == p2msg){
-		player1.writeToSock(p2msg, p2msg.size());
-		player2.writeToSock(p1msg, p1msg.size());
+		player1.writeToSock("1", 1);
+		player2.writeToSock("2", 1);
+		std::cout << "Wrote to socks" << std::endl;
 	} else {
 		player1.writeToSock("stop", 4);
 		player2.writeToSock("stop", 4);
 		return;
 	}
-	
-	player1.writeToSock("1", 2);
-	player2.writeToSock("2", 2);
 	
 	fd_set players;
 	FD_ZERO(&players);
@@ -399,15 +394,17 @@ void playGame(std::pair<int,int> player) {
 	int highFD = (player1.getFD() > player2.getFD()) ? player1.getFD() : player2.getFD();
 
 	struct timeval timeout;
-
 	
     std::chrono::high_resolution_clock::time_point score1 = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point t1,t2;
+    std::chrono::high_resolution_clock::time_point t1, t2, t3, t4;
 
+	t1 = std::chrono::high_resolution_clock::now();
+	t3 = std::chrono::high_resolution_clock::now();
+	
+	bool enemy = false;
+	
 	while(player1.isOpen() && player2.isOpen()){
 
-		t1 = std::chrono::high_resolution_clock::now();
-		
 		p1msg = p2msg = "H";
 		
 		timeout.tv_sec = 1;
@@ -419,7 +416,7 @@ void playGame(std::pair<int,int> player) {
 		select(highFD+1, &players, NULL, NULL, &timeout);
 		if(FD_ISSET(player1.getFD(), &players)){
 			p1msg += player1.readFromSock(512);
-			if(p1msg.size() == 0){
+			if(p1msg.size() == 1){
 				player1.Close();
 			}
 			player1.writeToSock(p1msg, 512);
@@ -428,7 +425,7 @@ void playGame(std::pair<int,int> player) {
 		
 		if(FD_ISSET(player2.getFD(), &players)){
 			p2msg += player2.readFromSock(512);
-			if(p2msg.size() == 0){
+			if(p2msg.size() == 1){
 				player2.Close();
 			}
 			player1.writeToSock(p2msg, 512);
@@ -436,9 +433,10 @@ void playGame(std::pair<int,int> player) {
 		}
 		
 		t2 = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> enemy = std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
+		std::chrono::duration<double> enemy_cont = std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
 	
-		if(enemy.count() > ((double) .99)){
+		if(enemy_cont.count() > ((double) 50.0)){
+			t1 = t2;
 			int enemyDir = rand() % 7;
 			std::string enemyMove = "E";
 			//Up Encoding
@@ -458,10 +456,18 @@ void playGame(std::pair<int,int> player) {
 			player1.writeToSock(enemyMove, 2);
 			player2.writeToSock(enemyMove, 2);
 		}
+		t4 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> pit_cont = std::chrono::duration_cast<std::chrono::duration<double>>(t4-t3);
+		
+		if(pit_cont.count() > ((double)200.0)){
+			t3 = t4;
+			player1.writeToSock("P",1);
+			player2.writeToSock("P",1);
+		}
 	
 		std::chrono::high_resolution_clock::time_point score2 = std::chrono::high_resolution_clock::now();
 	    std::chrono::duration<double> score = std::chrono::duration_cast<std::chrono::duration<double>>(score2 - score1);
-	
+		
 		currentHighscore = (int)(100 * score.count());
 	}
 

@@ -62,6 +62,47 @@ void setSignalActions(int setSig){
     return;
 }
 
+std::vector< std::vector<std::string> > getEnemyFiles(){
+    std::vector<std::string> wolf {"wolfy.txt", "wolfy2.txt"};
+    std::vector<std::string> tiger {"tiger.txt", "tiger2.txt"};
+    std::vector<std::string> snake {"snake1.txt", "snake2.txt"};
+    std::vector<std::string> croc {"croc1.txt", "croc2.txt"};
+    std::vector<std::string> baddie {"baddie.txt", "baddie2.txt"};
+    std::vector< std::vector<std::string> > enemies;
+    enemies.push_back(wolf);
+    enemies.push_back(tiger);
+    enemies.push_back(snake);
+    enemies.push_back(croc);
+    enemies.push_back(baddie);
+    return enemies;
+    
+}
+
+std::vector< std::vector<std::string> > getPitFiles(){
+    std::vector<std::string> pit1 {"pit1.txt"};
+    std::vector<std::string> pit2 {"pit2.txt"};
+    std::vector<std::string> pit3 {"pit3.txt"};
+    std::vector<std::string> pit4 {"pit4.txt"};
+    std::vector<std::string> pit5 {"pit5.txt"};
+    std::vector< std::vector<std::string> > pits;
+    pits.push_back(pit1);
+    pits.push_back(pit2);
+    pits.push_back(pit3);
+    pits.push_back(pit4);
+    pits.push_back(pit5);
+    return pits;
+}
+
+std::vector< std::vector<std::string> > getPoolFiles(){
+    std::vector<std::string> pool1 {"pool1-1.txt", "pool1-2.txt"};
+    std::vector<std::string> pool2 {"pool2-1.txt", "pool2-2.txt"};
+    std::vector< std::vector<std::string> > pools;
+    pools.push_back(pool1);
+    pools.push_back(pool2);
+    return  pools;
+    
+}
+
 //Main Game/Graphics Update Function
 void readFunc(void* argsV){
 
@@ -70,16 +111,17 @@ void readFunc(void* argsV){
     bool playerOne = *(bool*)args[1];
     Screen* main = (Screen*)args[2];
 
-    vector <string> enemyFiles {"wolfy.txt", "wolfy2.txt" };
-    vector <string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
-
-    Window* hero = main->loadHero(heroFiles, 10,10);
-    Window* enemy = main->loadImages(enemyFiles, WinType::ENEMY);      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
+    std::vector< std::vector<std::string> > enemies = getEnemyFiles();
+    std::vector< std::vector<std::string> > pools = getPoolFiles();
+    std::vector< std::vector<std::string> > pits = getPitFiles();
     
-    main->putOnScreen(hero, 10, 10);
-    main->putOnScreen(enemy, 150, 10);
+    vector <std::string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
 
-    main->update(0);
+    main->setHero(10,10);
+    Window* enemy;      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
+    Window* pit;
+    
+    main->update();
 
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
@@ -89,10 +131,6 @@ void readFunc(void* argsV){
     setSignalActions(SIGINT);
     setSignalActions(SIGTERM);
     
-    //int num = playerOne? 1 : 2;
-    
-    //std::ofstream ofs ("player" + std::to_string(num) + ".txt", std::ofstream::out);
-    
     double backgroundTracker = 0.0;
     double backgroundUpdatePoint = 15.0;
     double rate = 1.0;
@@ -100,67 +138,79 @@ void readFunc(void* argsV){
     int frame = 0;
     int j = 0;
     
+    int pitNum = 0;
+    int locNum = 0;
+    std::vector<int> pitLoc = {0,10, 40, 50};
+    
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
+    std::ofstream ofs ("ofs.txt", std::ofstream::out | std::ofstream::app);
     while(cliSock.isOpen() && !threadEnd){
         std::string msg = cliSock.readFromSock(512);
         if(msg.size() > 0){
-            //ofs << msg << std::endl;
+            ofs << msg << std::endl;
             for(int i = 0; i < msg.size(); i++){
-                
                 char ch = msg[i];
                 if(ch == 'H'){
                     ch = msg[++i];
                     switch(ch){
                         
                     case 3: //Up Encoding
-                        main->move("up", hero);
-                        //ofs << "UP" << std::endl;
+                        main->moveHero("up");
                         break;
                     case 2: //Down Encoding
-                        main->move("down", hero);
-                        //ofs << "down" << std::endl;
+                        main->moveHero("down");
                         break;
                     case 4: //Left Encoding
-                        main->move("left", hero);
-                        //ofs << "left" << std::endl;
+                        main->moveHero("left");
                         break;
                     case 5: //Right Encoding
-                        main->move("right", hero);
-                        //ofs << "right" << std::endl;
+                        main->moveHero("right");
                         break;
                     }
                 }
                 
+                int e;
                 if (ch == 'E'){
                     ch = msg[++i];
                     switch(ch){
-                        
+                    
+                    case 'S': //Spawn Encoding
+                        //e = main->getLevel();
+                        //enemy = main->loadImages(enemies[e], WinType::ENEMY, COLOR_PAIR(1 + main->getLevel() % 8));
+                        //main->putOnScreen(enemy, 150, 10);
+                        break;
                     case '0': //Up Encoding
-                        main->move("up", enemy);
-                        //ofs << "UP" << std::endl;
+                        //main->moveWin("up", enemy);
                         break;
                     case '1': //Down Encoding
-                        main->move("down", enemy);
-                        //ofs << "down" << std::endl;
+                        //main->moveWin("down", enemy);
                         break;
                     case '2': //Left Encoding
-                        main->move("left", enemy);
-                        //ofs << "left" << std::endl;
+                        //main->moveWin("left", enemy);
                         break;
                     case '3': //Right Encoding
-                        main->move("right", enemy);
-                        //ofs << "right" << std::endl;
+                        //main->moveWin("right", enemy);
                         break;
                     }
                 }
+                
+                if (ch == 'P'){
+                    //pit = main->loadImages(pits[pitNum], WinType::PIT, COLOR_PAIR(1 + main->getLevel() % 8));
+                    //main->putOnScreen(pit, 150, pitLoc[locNum++]);
+                    //if(locNum >= pitLoc.size()){
+                    //    locNum = 0;
+                    //}
+                    
+                }
+                
             }
         }
 
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> tDur = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
         
-        if(tDur.count() > ((double)1.0/30.0)){
+        if(tDur.count() > ((double)1.0/10.0)){
             t1 = t2;
             backgroundTracker += rate;
             if(backgroundTracker >= backgroundUpdatePoint){
@@ -172,12 +222,10 @@ void readFunc(void* argsV){
                     rate *= .9;
                 }
             }
-            main->scrollBg(j);
-            main->update(frame);
+            main->update();
         }
     }
     
-    main->cleanup();
     endwin();
     return;
 }
@@ -187,9 +235,6 @@ void writeFunc(void* argsV){
     void** args = (void**)argsV;
     inetSock cliSock(*(inetSock*)args[0]);
     bool playerOne = *(bool*)args[1];
-    
-    int num = playerOne? 1 : 2;
-    //std::ofstream ofs (std::to_string(num) + "player.txt", std::ofstream::out);
     
     std::string msg;
     
@@ -204,7 +249,6 @@ void writeFunc(void* argsV){
                 msg += ch;
                 cliSock.writeToSock(msg, msg.size());
             }
-            //ofs << msg << " " << (int)msg[0] << std::endl;
         } else {
             msg = "";
         }
@@ -214,81 +258,112 @@ void writeFunc(void* argsV){
 //menu page
 int menu(inetSock &cliSock, Screen* main) 
 { 
-   //initscr();
-   //keypad(stdscr,true); 
-   //start_color();     
-   init_pair(7,COLOR_GREEN,COLOR_BLACK);   
-   init_pair(8,COLOR_YELLOW, COLOR_BLACK);
-   init_pair(9,COLOR_RED, COLOR_BLACK);
-   attrset (COLOR_PAIR(7));                 
-   int row, col;
-   getmaxyx(stdscr, row, col);
-   int x=col/2-35;
-   int y=row/2-12;
-   ifstream inputfile, inputfile1;
-   inputfile.open("./Images/endlessrunner.txt");
-   inputfile1.open("./Images/gladiatorFacing.txt");
-   if(inputfile.is_open()&&inputfile1.is_open()){
-      string line,line1;
-      while(getline(inputfile,line)){
-	//mvprintw(y,x,"ingetline");
-	//y++;
- 	mvprintw(y,x,line.c_str());
-	y++;
-      }
-      attrset(COLOR_PAIR(8));	
-      x=col/2-4;
-      while(getline(inputfile1,line1)){
-	mvprintw(y,x,line1.c_str());
-	y++;
-      }
-   }
-   else
-	mvprintw(y,x,"could not open files");
-   y++;
-   attrset (COLOR_PAIR(7));
-   x=col/2-2;
-   mvprintw(y,x,"by:\n");
-   y++;
-   x=col/2-8;
-   mvprintw(y,x,"dylan kosloff\n");
-   y++;
-   x=col/2-9;
-   mvprintw(y, x,"martha gebremariam &\n");
-   y++;
-   x=col/2-8;
-   mvprintw(y,x,"sean mulholland\n");
-   y=y+2;
-   x=col/2-15;
-   mvprintw(y,x,"press space key to start game\n");
-   x=col/2-12;
-   y++;
-   mvprintw(y,x,"press tab key for how-to\n");
-   y++;
-   x=col/2-8;
-   mvprintw(y,x,"press 'q' to quit\n");
-   
-   
-   wchar_t ch;
-   while( (ch =getch() ) != 'q' )
-   {
-      if(ch==9) //to be updated later
-	    return 0;
-	  else if(ch==' '){
-	      std::string start = "start";
-	      cliSock.writeToSock(start, start.size()); 
-	      y++;
-          x=col/2-12;
-          mvprintw(y,x, "Waiting on other player to connect...");
-	      start = cliSock.readFromSock(512);
-	      if(start != "start"){
-	          menu(cliSock, main);
-	      }
-	      return 0;
-	  }
-   }    
-   endwin(); 
-   return 1;
+    
+    init_pair(7,COLOR_GREEN,COLOR_BLACK);   
+    init_pair(8,COLOR_YELLOW, COLOR_BLACK);
+    init_pair(9,COLOR_RED, COLOR_BLACK);
+    attrset (COLOR_PAIR(7));                 
+    int row, col;
+    getmaxyx(stdscr, row, col);
+    int x=col/2-35;
+    int y=row/2-12;
+    ifstream inputfile, inputfile1;
+    inputfile.open("./Images/endlessrunner.txt");
+    inputfile1.open("./Images/gladiatorFacing.txt");
+    if(inputfile.is_open()&&inputfile1.is_open()){
+        std::string line,line1;
+        while(getline(inputfile,line)){
+        //mvprintw(y,x,"ingetline");
+        //y++;
+            mvprintw(y,x,line.c_str());
+            y++;
+        }
+        attrset(COLOR_PAIR(8));	
+        x=col/2-4;
+        while(getline(inputfile1,line1)){
+            mvprintw(y,x,line1.c_str());
+            y++;
+        }
+    }
+    else
+        mvprintw(y,x,"could not open files");
+    y++;
+    attrset (COLOR_PAIR(7));
+    x=col/2-2;
+    mvprintw(y,x,"by:\n");
+    y++;
+    x=col/2-8;
+    mvprintw(y,x,"dylan kosloff\n");
+    y++;
+    x=col/2-9;
+    mvprintw(y, x,"martha gebremariam &\n");
+    y++;
+    x=col/2-8;
+    mvprintw(y,x,"sean mulholland\n");
+    y=y+2;
+    x=col/2-15;
+    mvprintw(y,x,"press space key to start game\n");
+    x=col/2-12;
+    y++;
+    mvprintw(y,x,"press tab key for how-to\n");
+    y++;
+    x=col/2-8;
+    mvprintw(y,x,"press 'q' to quit\n");
+    
+    std::string hs = cliSock.readFromSock(512);
+    int hsY = row/2;
+    int hsX = col * 3 / 4;
+    std::string hsLabel = "high score: ";
+    attrset(COLOR_PAIR(9));
+    mvprintw(hsY, hsX, hsLabel.c_str());
+    hsX += hsLabel.size();
+    mvprintw(hsY, hsX, hs.c_str());
+    refresh();
+    attrset(COLOR_PAIR(7));
+    wchar_t ch;
+    while( (ch =getch() ) != 'q' )
+    {
+    if(ch==9) //to be updated later
+        return 0;
+    else if(ch==' '){
+        std::string start = "start";
+        cliSock.writeToSock(start, start.size());
+        y++;
+        x=col/2-6;
+        mvprintw(y,x, "Waiting on other player...");
+        refresh();
+        start = cliSock.readFromSock(512);
+        y++;
+        x=col/2-12;
+        if (start.size() > 1){
+            mvprintw(y,x, start.c_str());
+            refresh();
+            usleep(1000000);
+            return 0;
+        }
+        std::string playerMsg = "Player " + start;
+        attrset(COLOR_PAIR(9));
+        mvprintw(y,x, playerMsg.c_str());
+        y++;
+        x=col/2-12;
+        attrset(COLOR_PAIR(7));
+        mvprintw(y,x, "Starting in 3...");
+        refresh();
+        usleep(1000000);
+        y++;
+        x=col/2;
+        mvprintw(y,x, "2...");
+        refresh();
+        usleep(1000000);
+        y++;
+        x=col/2;
+        mvprintw(y,x, "1...");
+        refresh();
+        usleep(1000000);
+        return atoi(start.c_str());
+        }
+    }    
+    return 0;
 }
 
 int main(int argc, char* argv[]){
@@ -311,7 +386,13 @@ int main(int argc, char* argv[]){
     Screen main = Screen();
     main.init();
     
-    menu(cliSock, &main);
+    int menuOpt = menu(cliSock, &main);
+    
+    if(menuOpt == 0){
+        cliSock.Close();
+        endwin();
+        return 0;
+    }
     
     int playerNum = atoi(cliSock.readFromSock(2).c_str());
     bool playerOne = (playerNum == 1) ? true : false;
