@@ -19,13 +19,13 @@ SRC2 = ../inetLib/inetLib.cpp
 SRC3 = screen.cpp
 SRC4 = window.cpp
 SRC5 = test.cpp
-SRC6 =
+SRC6 = winTypes.cpp
 SRC7 =
 SRC8 =
 SRC9 =
 
 SRCS = ${SRC1} ${SRC2}
-SCREENC = ${SRC3} ${SRC4} ${SRC5}
+SCREENC = ${SRC3} ${SRC4} ${SRC5} ${SRC6}
 
 HDR1 = ../inetLib/inetLib.hpp
 HDR2 = screen.hpp

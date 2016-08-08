@@ -6,6 +6,7 @@
 #define __SCREEN_H__
 
 #include "window.hpp"
+#include "winTypes.cpp"
 #include <vector>
 #include <panel.h>
 #include <string>
@@ -17,33 +18,28 @@ class Screen
      private:
         vector<PANEL*> panelLevel;
         vector<Window*> activeWindows;
-        //std::vector<Window*> movingEnemies;       Maybe for later
-        vector<Window*> movingWindows;
         unordered_map <string, Window*> deathAnimations;
         Window* bgWindow;
-        Window* hero;
+        Hero* hero;
         Window* deathAnimation;
-        int level, bgIndex, frame, screenHeight, screenWidth;
+        int level, bgIndex, deathFrame, screenHeight, screenWidth, waterStart, waterEnd;
         void addToPanelLevel(Window* image);
         bool dead;
      
      public:
         void init();
+        int getLevel();
         int update();
-        void scrollBg(int startCol);    
-        void move(std::string direction, Window* baseW);
-        void cleanup();
-        Window* loadImages(vector<string> filenames, WinType type);
-        Window* getBG();
+        Window* loadImages(vector<string> filenames, WinType type, int colorScheme);
+        Enemy* loadEnemy(vector<string> filenames, int colors);
         void playAnimation(Window* win, int x, int y);
         void putOnScreen(Window* image, int X, int Y);
-        Window* loadHero( vector<string> filenames, int x, int y );
+        Hero* getHero(int x, int y);
         void removeFromScreen(Window* image);
         void loadDeathAnimations();
         void checkIfDead();
+        void playDeathScene();
         void shrinkWindow(Window* win);
-        
-
 };
 
 

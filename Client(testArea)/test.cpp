@@ -18,22 +18,21 @@ int main()
     main.init();
 
     vector <string> wolfFiles {"wolfy.txt", "wolfy2.txt" };
-    vector <string> heroFiles {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
     vector <string> pit1Files  {"pit1.txt" };
     vector <string> pit2Files  {"pit2.txt" };
     
     // Need to change this.  Maybe just add by default off the screen
-    Window* wolf = main.loadImages(wolfFiles, WinType::ENEMY);
-    Window* pit1 = main.loadImages(pit1Files, WinType::PIT);
-    Window* pit2 = main.loadImages(pit2Files, WinType::PIT);
+    Enemy* wolf = main.loadEnemy(wolfFiles, COLOR_PAIR(2));
+    Window* pit1 = main.loadImages(pit1Files, WinType::PIT, COLOR_PAIR(2));
+    Window* pit2 = main.loadImages(pit2Files, WinType::PIT, COLOR_PAIR(2));
     main.putOnScreen(wolf, 150, 10);
     main.putOnScreen(pit1, 300, 5);
-    main.putOnScreen(pit2, 200, 20);
+    main.putOnScreen(pit2, 250, 20);
 
-    Window* hero = main.loadHero(heroFiles, 10, 10);
+    Hero* hero = main.getHero(10, 10);
 
     main.update();
-    timeout(100);
+    timeout(60);
     
     
     wchar_t ch;
@@ -42,28 +41,27 @@ int main()
         frame++;
         if(frame == 150)
             main.putOnScreen(wolf, 300, 10);
-        
+        //main.move("left", wolf);        // Apparently we need to move all the bg objects first, otherwise they show up on top.
 
         switch(ch)
         {
             case KEY_LEFT:
-                main.move("left", hero);
+                hero->move("left", main.getLevel());
                 break;
             case KEY_RIGHT:
-                main.move("right", hero);
+                hero->move("right", main.getLevel());
                 break;
             case KEY_UP:
-                main.move("up", hero);
+                hero->move("up", main.getLevel());
                 break;
             case KEY_DOWN:
-                main.move("down", hero);
+                hero->move("down", main.getLevel());
                 break;
         }
         
         if( main.update() == 1)
             break;
     }
-    main.cleanup();
     endwin();
     return 0;
 }
