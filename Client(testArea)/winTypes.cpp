@@ -120,6 +120,12 @@ class Hero : public Window
              else if(yPos + this->getHeight() - 6 > screenBottomLimit)
                 yPos -= speed;
         }
+        if(direction == "jump")
+        {
+           xPos += 12;
+            //if(xPos + this->getWidth() > screenRightLimit)
+               //xPos -= 12;
+        }
         this->setX(xPos);
         this->setY(yPos);
         rotate();            // Changes the top window index
@@ -172,6 +178,7 @@ class Enemy : public Window
             if(yPos + this->getHeight() > screenBottomLimit)
                 yPos -= speed;
         }
+       
         this->setX(xPos);
         this->setY(yPos);
         rotate();            // Changes the top window index

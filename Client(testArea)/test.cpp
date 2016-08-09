@@ -21,6 +21,12 @@ int main()
     vector <string> pit1Files  {"pit1.txt" };
     vector <string> pit2Files  {"pit2.txt" };
     
+    ///////////////////////////////////
+    vector<string>javelinFile{"javelin.txt"};
+    Window * javelin = main.loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(3));
+    /////////////////////////////////////
+    
+    
     // Need to change this.  Maybe just add by default off the screen
     Enemy* wolf = main.loadEnemy(wolfFiles, COLOR_PAIR(2));
     Window* pit1 = main.loadImages(pit1Files, WinType::PIT, COLOR_PAIR(2));
@@ -57,7 +63,14 @@ int main()
             case KEY_DOWN:
                 hero->move("down", main.getLevel());
                 break;
+            case 'j': //use j to jump
+                hero->move("jump", main.getLevel());
+               break;
+            case ' ':
+                main.putOnScreen(javelin,0,0);
+                //break;
         }
+        
         
         if( main.update() == 1)
             break;

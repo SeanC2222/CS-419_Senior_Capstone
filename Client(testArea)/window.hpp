@@ -7,7 +7,7 @@
 
 using namespace std;
 
-enum class WinType { BACKGROUND, ENEMY, WALL, HERO, PIT, DEATH };
+enum class WinType { BACKGROUND, ENEMY, WALL, HERO, PIT, DEATH,JAVELIN};
 
 class Window
 {

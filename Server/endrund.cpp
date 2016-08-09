@@ -325,7 +325,6 @@ int buildServer(std::string portno){
 				playerCount++;
 				//Store pair of players
 				games.push_back(players);
-				std::cout << "GOT PLAYERS: " << players.first << ", " << players.second << std::endl;
 				//Fork a game for players
 				pid_t pid = fork();
 				//If pid == 0, child = true, else child = false
@@ -368,7 +367,6 @@ void playGame(std::pair<int,int> player) {
 	inetSock player1(player.first);
 	inetSock player2(player.second);
 	std::string curHS = std::to_string(currentHighscore);
-	std::cout << curHS << std::endl;
 	
 	player1.writeToSock(curHS, curHS.size());
 	player2.writeToSock(curHS, curHS.size());
@@ -377,11 +375,9 @@ void playGame(std::pair<int,int> player) {
 	
 	p1msg = player1.readFromSock(512);
 	p2msg = player2.readFromSock(512);
-	std::cout << "got messages: " << p1msg << " | " << p2msg << std::endl;
 	if(p1msg == p2msg){
 		player1.writeToSock("1", 1);
 		player2.writeToSock("2", 1);
-		std::cout << "Wrote to socks" << std::endl;
 	} else {
 		player1.writeToSock("stop", 4);
 		player2.writeToSock("stop", 4);
@@ -469,7 +465,10 @@ void playGame(std::pair<int,int> player) {
 	    std::chrono::duration<double> score = std::chrono::duration_cast<std::chrono::duration<double>>(score2 - score1);
 		
 		currentHighscore = (int)(100 * score.count());
+		player1.writeToSock("S" + std::to_string(currentHighscore));
+		player2.writeToSock("S" + std::to_string(currentHighscore));
 	}
-
+	player1.Close();
+	player2.Close();
 	termAction(0); //Passed int is irrelevant
 }

@@ -100,6 +100,16 @@ int Screen::update()
 
         for( auto* w : activeWindows)       // Move all the other windows
         {
+            if(w->getWinType()==WinType::JAVELIN){
+        		int jXpos=w->getX();
+        		jXpos+=3;
+        		w->setX(jXpos);
+        		move_panel(panelLevel[w->getPanelIndex()], w->getX(), w->getY());	
+        		if(w->getX() + w->getWidth() >=screenWidth){
+        		   removeFromScreen(w);
+        		   return 0;
+		        } 
+	        }
             if( w->getWinType() != WinType::ENEMY )
             {
                 if( w->move(level) )    // Returns true if the top window changed (an animated non-enemy...don't think we have any)
@@ -169,8 +179,16 @@ void Screen::playDeathScene()
 
 void Screen::putOnScreen(Window* image, int X, int Y)
 {
-    image->setX(X);
-    image->setY(Y);
+    if(image->getWinType()==WinType::JAVELIN){
+    	int heroX=hero->getX()+3;
+    	int heroY=hero->getY()+3;	
+    	image->setX(heroX);
+    	image->setY(heroY);
+    }
+    else{
+        image->setX(X);
+        image->setY(Y);
+    }
     move_panel( this->panelLevel[ image->getPanelIndex() ] , image->getY(), image->getX() );
     if( X < screenWidth )
         show_panel( this->panelLevel[ image->getPanelIndex() ] );
@@ -236,6 +254,17 @@ void Screen::checkIfDead()
             }
         }
         //else if( screenElement->getWinType() == WinType::WALL )
+        else if (screenElement -> getWinType() == WinType::JAVELIN){
+    	   for ( Window* anotherScreenElement :  activeWindows){
+	        if (anotherScreenElement->getWinType() == WinType::ENEMY){
+		        if(screenElement -> getX()>= anotherScreenElement ->getX()&&screenElement ->getY()<=anotherScreenElement->getY()+anotherScreenElement->getHeight()&&screenElement->getY()>=anotherScreenElement->getY()){
+		            removeFromScreen(anotherScreenElement);
+		            removeFromScreen(screenElement);
+		            //return;
+		        }
+	        }
+	       } 
+	    }
     }
 }
 
