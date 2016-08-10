@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 void Screen::init()
 {
+    
     initscr();
     if(has_colors() == FALSE)
     { 
@@ -18,16 +20,47 @@ void Screen::init()
     //use_default_colors();
     
     // Should probably put these in a function later: initColors(int level)
-    init_pair(1, COLOR_GREEN, COLOR_YELLOW);    
-    init_pair(2, COLOR_BLACK, COLOR_YELLOW);
-    init_pair(3, COLOR_RED, COLOR_YELLOW);
-    init_pair(4, COLOR_WHITE, COLOR_YELLOW);
-    init_pair(5, COLOR_WHITE, COLOR_BLACK);
-    init_pair(6, COLOR_BLACK, COLOR_BLUE);
-    init_pair(7, COLOR_WHITE, COLOR_BLUE);
-    init_pair(8, COLOR_RED, COLOR_BLUE);
-    init_pair(9, COLOR_MAGENTA, COLOR_YELLOW);
-    init_pair(10, COLOR_RED, COLOR_BLACK);
+    
+    //Level Detail Colors
+    init_pair((int)color::ARENA, COLOR_GREEN, COLOR_YELLOW);             //1
+    init_pair((int)color::FOREST, COLOR_YELLOW, COLOR_GREEN);            //18
+    init_pair((int)color::BEACH, COLOR_MAGENTA, COLOR_BLACK);            //17
+    init_pair((int)color::DEEP_WATER, COLOR_BLACK, COLOR_BLUE);          //6
+    init_pair((int)color::SHALLOW_WATER, COLOR_WHITE, COLOR_BLUE);       //7
+    init_pair((int)color::END, COLOR_MAGENTA, COLOR_YELLOW);             //9
+    //DETAIL COLORS
+    init_pair((int)color::HERO, COLOR_BLACK, COLOR_YELLOW);
+    init_pair((int)color::DEATH_MAULED, COLOR_BLACK, COLOR_YELLOW);      //2
+    init_pair((int)color::DEATH_FALL, COLOR_WHITE, COLOR_BLACK);         //5
+    init_pair((int)color::DEATH_DROWN, COLOR_BLACK, COLOR_BLUE);         //6
+    init_pair((int)color::JAVELIN, COLOR_RED, COLOR_YELLOW);             //3
+    //SCORE COLORS
+    init_pair((int)color::SCORE, COLOR_RED, COLOR_BLACK);                //10
+    //ENEMY COLORS
+    init_pair((int)color::ARENA_ENEMY_ONE, COLOR_CYAN, COLOR_YELLOW);     //11
+    init_pair((int)color::ARENA_ENEMY_TWO, COLOR_RED, COLOR_YELLOW);      //3
+    init_pair((int)color::FOREST_ENEMY_ONE, COLOR_CYAN, COLOR_GREEN);     //19
+    init_pair((int)color::FOREST_ENEMY_TWO, COLOR_RED, COLOR_GREEN);      //20
+    init_pair((int)color::BEACH_ENEMY, COLOR_RED, COLOR_BLACK);           //10
+    init_pair((int)color::WATER_ENEMY_ONE, COLOR_GREEN, COLOR_BLUE);     //12
+    init_pair((int)color::WATER_ENEMY_TWO, COLOR_CYAN, COLOR_BLUE);      //13
+    //PIT COLORS
+    init_pair((int)color::PIT_ONE, COLOR_MAGENTA, COLOR_YELLOW);         //9
+    init_pair((int)color::PIT_TWO, COLOR_WHITE, COLOR_YELLOW);           //4
+    init_pair((int)color::POOL, COLOR_CYAN, COLOR_BLUE);                 //17
+    //MENU PAIRS
+    init_pair((int)color::MENU_ONE,COLOR_GREEN, COLOR_BLACK);             //14
+    init_pair((int)color::MENU_TWO,COLOR_YELLOW, COLOR_BLACK);           //15
+    init_pair((int)color::MENU_THREE,COLOR_RED, COLOR_BLACK);            //16
+    //GET WIN FROM FILE PAIRS COLORS
+    init_pair((int)color::GW_ONE, COLOR_GREEN, COLOR_YELLOW);            //1
+    init_pair((int)color::GW_TWO, COLOR_BLACK, COLOR_YELLOW);            //2
+    init_pair((int)color::GW_THREE, COLOR_RED, COLOR_YELLOW);            //3
+    init_pair((int)color::GW_FOUR, COLOR_WHITE, COLOR_YELLOW);           //4
+    init_pair((int)color::GW_FIVE, COLOR_WHITE, COLOR_BLACK);            //5
+    init_pair((int)color::GW_SIX, COLOR_BLACK, COLOR_BLUE);              //6
+    init_pair((int)color::GW_SEVEN, COLOR_WHITE, COLOR_BLUE);            //7
+    init_pair((int)color::GW_EIGHT, COLOR_RED, COLOR_BLUE);              //8
 
     cbreak();                   // Don't wait for user to hit 'enter'
     noecho();                   // Don't display user input on screen
@@ -38,14 +71,14 @@ void Screen::init()
     addToPanelLevel(this->bgWindow);
     loadDeathAnimations();
     this->level = 1;
-    this->area = 1;
+    this->area = color::ARENA;
     this->bgIndex= 0;       // Scroll the bg file starting at col 0
     getmaxyx(stdscr, screenHeight, screenWidth);
-    forestStart = 502;
-    sandStart = 1350;
-    waterStart = 1418;
-    waterMid = 1740;
-    waterEnd = 2178;
+    forestStart = 2045;
+    sandStart = 3500;
+    waterStart = 4000;
+    waterMid = 5000;
+    waterEnd = 5800;
     deathAnimation = NULL;
     dead = false;
     deathFrame = 1;
@@ -67,6 +100,17 @@ int Screen::getLevel()
  **/
 int Screen::getArea()
 {
+    if(bgIndex < forestStart){
+        this->area = color::ARENA;
+    } else if (bgIndex >= forestStart && bgIndex < sandStart){
+        this->area = color::FOREST;
+    } else if (bgIndex >= sandStart && bgIndex < waterStart){
+        this->area = color::BEACH;
+    } else if (bgIndex >= waterStart && bgIndex < waterMid){
+        this->area = color::SHALLOW_WATER;
+    } else {
+        this->area = color::DEEP_WATER;
+    }
     return this->area;
 }
 
@@ -85,18 +129,7 @@ int Screen::update()
     if(!dead)
         checkIfDead();
  
-    if(bgIndex < forestStart){
-        area = ARENA;
-    } else if (bgIndex >= forestStart && bgIndex < sandStart){
-        area = FOREST;
-    } else if (bgIndex >= sandStart && bgIndex < waterStart){
-        area = BEACH;
-    } else if (bgIndex >= waterStart && bgIndex < waterMid){
-        area = SHALLOW_WATER;
-    } else {
-        area = DEEP_WATER;
-    }
-
+    this->area = getArea();    
  
     if( dead )
     {
@@ -114,9 +147,11 @@ int Screen::update()
     // Move any active (on screen) windows
     if( !dead )
     {
+        
         bgIndex += level;
-        bgWindow->showBgAt(bgIndex, waterStart, waterEnd);    // Scroll the background here
-        if (bgIndex==2300)  //max column size of bg file and should be updated accordingly
+        
+        bgWindow->showBgAt(bgIndex, area, forestStart, sandStart, waterStart, waterEnd);    // Scroll the background here
+        if (bgIndex==5800)  //max column size of bg file and should be updated accordingly
         {
             bgIndex=0;  
             level++;
@@ -156,7 +191,7 @@ int Screen::update()
                 if(w->getX() + w->getWidth() <= 0)           
                 {                                                   
                     removeFromScreen(w);                        
-                    return 0;     // Don't bother moving the panel
+                    continue;     // Don't bother moving the panel
                 }
                 else
                     shrinkWindow(w);
@@ -189,9 +224,9 @@ void Screen::loadDeathAnimations()
     vector <string> fallingFiles { "fall1.txt" , "fall2.txt" , "fall3.txt" , "fall4.txt" , "fall5.txt", "fall6.txt" };
     vector <string> drowningFiles {"drown1.txt", "drown2.txt", "drown3.txt", "drown4.txt", "drown5.txt", "drown6.txt",  "drown7.txt"};
     
-    deathAnimations["mauled"] = loadImages(mauledFiles, WinType::DEATH, COLOR_PAIR(2));
-    deathAnimations["fall"] = loadImages(fallingFiles, WinType::DEATH, COLOR_PAIR(5));
-    deathAnimations["drown"] = loadImages(drowningFiles, WinType::DEATH, COLOR_PAIR(6));
+    deathAnimations["mauled"] = loadImages(mauledFiles, WinType::DEATH, COLOR_PAIR(color::DEATH_MAULED));
+    deathAnimations["fall"] = loadImages(fallingFiles, WinType::DEATH, COLOR_PAIR(color::DEATH_FALL));
+    deathAnimations["drown"] = loadImages(drowningFiles, WinType::DEATH, COLOR_PAIR(color::DEATH_DROWN));
 }
 
 
@@ -305,11 +340,11 @@ Hero* Screen::getHero(int x, int y )
 {
     // Load the main walking files
     vector<string> walkFiles = {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
-    Hero* heroWindow = new Hero(walkFiles[0], 200, 200, WinType::HERO, COLOR_PAIR(2));  // For some reason if I add it at 0, 0, it still shows up even with the hide_panel call below
+    Hero* heroWindow = new Hero(walkFiles[0], 200, 200, WinType::HERO, COLOR_PAIR(color::HERO));  // For some reason if I add it at 0, 0, it still shows up even with the hide_panel call below
     addToPanelLevel(heroWindow);
     hide_panel( this->panelLevel[ panelLevel.size()-1 ] );
     for(unsigned int i = 1; i < walkFiles.size(); i++) 
-        heroWindow->appendAnimation( walkFiles[i], COLOR_PAIR(2) );
+        heroWindow->appendAnimation( walkFiles[i], COLOR_PAIR(color::HERO) );
     
     // Load the other movements
     vector<string> jumpFiles = {"jump1.txt", "jump2.txt", "jump3.txt", "jump4.txt", "jump5.txt", "jump6.txt", "jump7.txt", "jump8.txt"};
@@ -317,11 +352,11 @@ Hero* Screen::getHero(int x, int y )
         "swimming6.txt", "swimming7.txt", "swimming8.txt"};
     vector<string> upFiles = {"getUp1.txt", "getUp2.txt", "getUp3.txt"};
     for(auto fname : jumpFiles)
-        heroWindow->appendOtherAnimation(fname, "jump", COLOR_PAIR(6));
+        heroWindow->appendOtherAnimation(fname, "jump", COLOR_PAIR(color::GW_SIX));
     for(auto fname : swimFiles)
-        heroWindow->appendOtherAnimation(fname, "swim", COLOR_PAIR(6));
+        heroWindow->appendOtherAnimation(fname, "swim", COLOR_PAIR(color::GW_SIX));
     for(auto fname : upFiles)
-        heroWindow->appendOtherAnimation(fname, "climb", COLOR_PAIR(2));
+        heroWindow->appendOtherAnimation(fname, "climb", COLOR_PAIR(color::HERO));
     
     heroWindow->saveScreenLimits(bgWindow->getWidth(), bgWindow->getHeight());
     

@@ -8,6 +8,12 @@
 using namespace std;
 
 enum class WinType { BACKGROUND, ENEMY, WALL, HERO, PIT, DEATH, JAVELIN, SCORE};
+enum color { ARENA = 1, FOREST, BEACH, SHALLOW_WATER, DEEP_WATER, END,
+                   HERO, DEATH_MAULED, DEATH_FALL, DEATH_DROWN, JAVELIN, SCORE,
+                   ARENA_ENEMY_ONE, ARENA_ENEMY_TWO, FOREST_ENEMY_ONE, FOREST_ENEMY_TWO, BEACH_ENEMY, WATER_ENEMY_ONE, WATER_ENEMY_TWO,
+                   PIT_ONE, PIT_TWO, POOL,
+                   MENU_ONE, MENU_TWO, MENU_THREE,
+                   GW_ONE, GW_TWO, GW_THREE, GW_FOUR, GW_FIVE, GW_SIX, GW_SEVEN, GW_EIGHT };
 
 class Window
 {
@@ -47,6 +53,6 @@ class Window
         bool isLastAnimationFrame();
         virtual bool move(int speed);
         WINDOW* getSquishedWindow(int howSmall);
-        void showBgAt(int k, int waterStartIdx, int waterEndIdx);
+        void showBgAt(int k, int area, int forestStart, int sandStart, int waterStartIdx, int waterEndIdx);
 };
 #endif

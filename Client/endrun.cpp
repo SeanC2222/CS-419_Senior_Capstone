@@ -118,18 +118,17 @@ void readFunc(void* argsV){
     std::vector< std::vector<std::string> > enemies = getEnemyFiles();
     std::vector< std::vector<std::string> > pools = getPoolFiles();
     std::vector< std::vector<std::string> > pits = getPitFiles();
+    int bigPit = 4;
     vector<string>javelinFile{"javelin.txt"};
-    Window * javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(3));
+    Window * javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN));
     
-    Hero* hero;
-    Enemy* enemy;    
+    Hero* hero = NULL;
+    Enemy* enemy = NULL;
     std::vector<Window*> activePits;
 
-    Score* curScore = new Score("", cols-12, 2, WinType::SCORE, COLOR_PAIR(10));
+    Score* curScore = new Score("", cols-12, 2, WinType::SCORE, COLOR_PAIR(color::SCORE));
     main->putOnScreen(curScore, cols-12, 1);
 
-    setSignalActions(0);
-    setSignalActions(SIGINT);
     setSignalActions(SIGTERM);
 
     double rate = 1.0;
@@ -138,7 +137,9 @@ void readFunc(void* argsV){
 
     int pitNum = 0;
     int locNum = 0;
-    std::vector<int> pitLoc = {0, 20, 10, 30, 15, 5};
+    std::vector<int> pitLoc = {0, 34-(34*2/3), 34-(34*3/4), 34-11, 34-(34*1/3), 34-(34*4/5)};
+    int bigPitTop = pitLoc[0];      //Ensure hero can dodge big pit
+    int bigPitBottom = pitLoc[3];   //Ensure hero can dodge big pit
 
 
     fd_set sock;
@@ -167,7 +168,7 @@ void readFunc(void* argsV){
             if(msg.size() == 0 || threadEnd){
                 cliSock.Close();
                 msg = "Server disconnected...";
-                attrset(COLOR_PAIR(9));
+                attrset(COLOR_PAIR(color::SCORE));
                 mvprintw(rows/2, cols/2-10, msg.c_str());
                 refresh();
                 threadEnd = 1;
@@ -177,6 +178,7 @@ void readFunc(void* argsV){
                 ofs << msg << std::endl;
                 for(int i = 0; i < msg.size(); i++){
                     char ch = msg[i];
+                    ofs << "char: " << ch << std::endl;
                     int e;
 
                     if(ch == 'H'){
@@ -208,38 +210,98 @@ void readFunc(void* argsV){
                         switch(ch){
 
                         case 'S': //Spawn Encoding
-                            enemy = main->loadEnemy(enemies[e], COLOR_PAIR(1 + main->getLevel() % 8));
-                            main->putOnScreen(enemy, 150, 10);
+                            ch = msg[++i] - 48;
+                            if(main->getArea() == color::ARENA){
+                                if(ch){
+                                    e = 0; //Wolf
+                                } else {
+                                    e = 4; //Baddie
+                                }
+                            } else if (main->getArea() == color::FOREST){
+                                if(ch){
+                                    e = 1;  //Tiger
+                                } else {
+                                    e = 3; //Snake
+                                }
+                            } else if (main->getArea() == color::BEACH){
+                                if(ch){
+                                    e = 1; //Tiger
+                                } else {
+                                    e = 4; //Croc
+                                }
+                            } else {
+                                if(ch){
+                                    e = 3;
+                                } else {
+                                    e = 4;
+                                }
+                            }
+                            if(enemy != NULL){
+                                delete enemy;
+                                enemy = NULL;
+                            }
+                            if(main->getArea() == ARENA){
+                                if(rand() % 2){
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::ARENA_ENEMY_ONE));
+                                } else {
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::ARENA_ENEMY_TWO));
+                                }
+                            } else if (main->getArea() == FOREST){
+                                if(rand() % 2){
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::FOREST_ENEMY_ONE));
+                                } else {
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::FOREST_ENEMY_TWO));
+                                }
+                            } else if (main->getArea() == BEACH){
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::BEACH_ENEMY));
+                                
+                            } else {
+                                if(rand() % 2){
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::WATER_ENEMY_ONE));
+                                } else {
+                                    enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::WATER_ENEMY_TWO));
+                                }
+                            }
+                            //main->putOnScreen(enemy, 150, 10);
                             continue;
                         case '0': //Up Encoding
+                            if(enemy != NULL){
+                                enemy->move("up", 1);
+                            }
                             continue;
-                            enemy->move("up", 1);
                         case '1': //Down Encoding
-                            enemy->move("down", 1);
-                            continue;
-                        case '2': //Left Encoding
-                            enemy->move("left", 1);
-                            continue;
-                        case '3': //Right Encoding
-                            enemy->move("right", 1);
+                            if(enemy != NULL){
+                                enemy->move("down", 1);
+                            }
                             continue;
                         }
                     } else if (ch == 'P'){
                         ch = msg[++i] - 48; // '0' character is value 48; 48 corrects to 0
                         
-                        if(main->getArea() == AREA_TYPE::SHALLOW_WATER || main->getArea() == AREA_TYPE::DEEP_WATER){
-                           activePits.push_back(main->loadImages(pools[ch % pools.size()], WinType::PIT, COLOR_PAIR(7)));
+                        if(main->getArea() == SHALLOW_WATER || main->getArea() == DEEP_WATER){
+                           activePits.push_back(main->loadImages(pools[ch % pools.size()], WinType::PIT, COLOR_PAIR(color::POOL)));
                         } else {
-                           activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(2)));
+                           activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_ONE)));
                         }
-                        main->putOnScreen(activePits[activePits.size()-1], 150, pitLoc[locNum++]);
+                        if(ch % pits.size() == bigPit){
+                            if(rand() % 2){
+                                main->putOnScreen(activePits[activePits.size()-1], 150, bigPitTop);
+                            } else {
+                                main->putOnScreen(activePits[activePits.size()-1], 150, bigPitBottom);
+                            }
+                        } else {
+                            main->putOnScreen(activePits[activePits.size()-1], 150, pitLoc[locNum++]);
+                        }
                         if(locNum >= pitLoc.size()){
                             locNum = 0;
+                        }
+                        while(activePits.size() > 3){
+                            activePits.erase(activePits.begin());
                         }
 
                     } else if (ch == 'S'){
                         currentHighscore = atoi(msg.c_str() + (++i));
-                        attrset(COLOR_PAIR(9));
+                        attrset(COLOR_PAIR(color::SCORE));
                         mvprintw(2, cols-15, msg.c_str()+i);
                         int nextMsg = std::string(msg.c_str()+i).find_first_not_of("1234567890");
                         if(nextMsg > 0){
@@ -251,6 +313,7 @@ void readFunc(void* argsV){
                     } else if (ch == 'K'){
                         cliSock.Close();
                         threadEnd = 1;
+                        break;
                     }
 
                     
@@ -272,6 +335,10 @@ void readFunc(void* argsV){
                 break;
             }
         }
+    }
+    
+    if(!main->heroIsAlive()){
+        ofs << "HERO DIED!" << std::endl;   
     }
 
     if(cliSock.isOpen()){
@@ -318,11 +385,7 @@ void writeFunc(void* argsV){
 //menu page
 int menu(inetSock &cliSock, Screen* main) 
 { 
-    
-    init_pair(7,COLOR_GREEN,COLOR_BLACK);   
-    init_pair(8,COLOR_YELLOW, COLOR_BLACK);
-    init_pair(9,COLOR_RED, COLOR_BLACK);
-    attrset (COLOR_PAIR(7));                 
+    attrset (COLOR_PAIR(color::MENU_ONE));                 
     int row, col;
     getmaxyx(stdscr, row, col);
     int x=col/2-35;
@@ -338,7 +401,7 @@ int menu(inetSock &cliSock, Screen* main)
             mvprintw(y,x,line.c_str());
             y++;
         }
-        attrset(COLOR_PAIR(8));	
+        attrset(COLOR_PAIR(color::MENU_TWO));	
         x=col/2-4;
         while(getline(inputfile1,line1)){
             mvprintw(y,x,line1.c_str());
@@ -348,7 +411,7 @@ int menu(inetSock &cliSock, Screen* main)
     else
         mvprintw(y,x,"could not open files");
     y++;
-    attrset (COLOR_PAIR(7));
+    attrset (COLOR_PAIR(color::MENU_ONE));
     x=col/2-2;
     mvprintw(y,x,"by:\n");
     y++;
@@ -370,18 +433,17 @@ int menu(inetSock &cliSock, Screen* main)
     x=col/2-8;
     mvprintw(y,x,"press 'q' to quit\n");
     refresh();
-    std::string hs = cliSock.readFromSock(512);
+    std::string hsLabel = cliSock.readFromSock(512);
+    hsLabel = "high score: " + hsLabel.substr(1, hsLabel.size());
     int hsY = row/2;
     int hsX = col * 3 / 4;
-    std::string hsLabel = "high score: ";
-    attrset(COLOR_PAIR(9));
+    attrset(COLOR_PAIR(color::MENU_THREE));
     mvprintw(hsY, hsX, hsLabel.c_str());
-    hsX += hsLabel.size();
-    mvprintw(hsY, hsX, hs.c_str());
     refresh();
-    attrset(COLOR_PAIR(7));
+    
+    attrset(COLOR_PAIR(color::MENU_ONE));
     wchar_t ch;
-    while( (ch =getch() ) != 'q' )
+    while( (ch =getch() ) != 'q' && !threadEnd)
     {
     if(ch==9) //to be updated later
         return 0;
@@ -392,15 +454,51 @@ int menu(inetSock &cliSock, Screen* main)
         x=col/2-12;
         mvprintw(y,x, "Waiting on other player...");
         refresh();
-        msg = cliSock.readFromSock(512);
+        
+        fd_set sock;
+        FD_ZERO(&sock);
+        struct timeval timeout;
+        
+        while(msg != "1" && msg != "2"){
+            msg = "";
+            timeout.tv_sec = 0;
+            timeout.tv_usec = (100000.0);
+            FD_SET(cliSock.getFD(), &sock);
+            
+            if(threadEnd){
+                endwin();
+                exit(0);
+            }
+            select(cliSock.getFD()+1, &sock, NULL, NULL, &timeout);
+    
+            if(FD_ISSET(cliSock.getFD(), &sock)){
+                msg = cliSock.readFromSock(512);
+                if(msg.size() == 0){
+                    y=row/2;
+                    x=col/2 - 15;
+                    mvprintw(y,x, "Lost Server Connection");
+                    refresh();
+                    sleep(2);
+                    endwin();
+                    exit(-1);
+                } else {
+                    if(msg != "1" && msg != "2"){
+                        hsLabel = "high score: " + msg;
+                        attrset(COLOR_PAIR(color::MENU_THREE));
+                        mvprintw(hsY, hsX, hsLabel.c_str());
+                        refresh();
+                    }
+                }
+            }
+        }
         y++;
         x=col/2-12;
         std::string playerMsg = "Player " + msg;
-        attrset(COLOR_PAIR(9));
+        attrset(COLOR_PAIR(color::MENU_THREE));
         mvprintw(y,x, playerMsg.c_str());
         y++;
         x=col/2-12;
-        attrset(COLOR_PAIR(7));
+        attrset(COLOR_PAIR(color::MENU_ONE));
         mvprintw(y,x, "Starting in 3...");
         refresh();
         usleep(1000000);
@@ -420,6 +518,8 @@ int menu(inetSock &cliSock, Screen* main)
         }
         refresh();
         return atoi(msg.c_str());
+        } else if (threadEnd){
+            return 0;
         }
     }    
     return 0;
@@ -444,6 +544,10 @@ int main(int argc, char* argv[]){
 
     Screen main = Screen();
     main.init();
+    timeout(100000);
+    
+    setSignalActions(0);
+    setSignalActions(SIGINT);
     
     int playerNum = menu(cliSock, &main);
     

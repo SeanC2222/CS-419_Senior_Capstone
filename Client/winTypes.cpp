@@ -195,7 +195,7 @@ class Score : public Window
         
     void update(int score){
         attrset(COLOR_PAIR(10));
-        mvprintw(0,0, std::to_string(score).c_str());
+       mvwprintw(this->getTop(), 0,0, std::to_string(score).c_str());
     }
     
     bool move(string direction, int speed){

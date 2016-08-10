@@ -12,8 +12,6 @@
 #include <string>
 #include <unordered_map>
 
-enum AREA_TYPE { ARENA, FOREST, BEACH, SHALLOW_WATER, DEEP_WATER };
-
 class Screen
 {
      private:
@@ -25,9 +23,11 @@ class Screen
         Window* deathAnimation;
         int level, screenHeight, screenWidth;
         int deathFrame;
-        int bgIndex, area, forestStart, sandStart, waterStart, waterMid, waterEnd;
+        int bgIndex, forestStart, sandStart, waterStart, waterMid, waterEnd;
+        int area;
         void addToPanelLevel(Window* image);
         bool dead;
+        
         
      public:
         void init();

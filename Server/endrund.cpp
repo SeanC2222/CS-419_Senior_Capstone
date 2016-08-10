@@ -92,8 +92,8 @@ int main(int argc, char* argv[]){
 
 		buildServer(portno);
 
-		//std::cout.rdbuf(coutbuf);
-		//std::cerr.rdbuf(cerrbuf);
+//		std::cout.rdbuf(coutbuf);
+//		std::cerr.rdbuf(cerrbuf);
 		std::cout << "Current HighScore : " << currentHighscore << std::endl;
 		return 0;
 	} else {
@@ -291,8 +291,15 @@ int buildServer(std::string portno){
 	setSignalActions(SIGUSR2);
 	setSignalActions(SIGPIPE);
 	
+	char* buf1, *buf2;
+	buf1 = (char*)malloc(16 * sizeof(char));
+	buf2 = (char*)malloc(16 * sizeof(char));
+	
 	//Server Loop
 	while(1){
+		
+		bzero(buf1, 16 * sizeof(char));
+		bzero(buf2, 16 * sizeof(char));
 		
 		if(signalFlag){
 			//Closing actions go here!
@@ -305,6 +312,13 @@ int buildServer(std::string portno){
 			for(int i = 0; i < gamePID.size(); i++){
 				waitpid(gamePID[i], NULL, 0);
 			}
+			int fd = open("logs/endrund/endrund.hs", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+			if(fd != -1){
+				int n = write(fd, &currentHighscore, sizeof(int));
+				close(fd);
+			}
+			free(buf1);
+			free(buf2);
 			//exit
 			return 0;
 		} 
@@ -321,10 +335,49 @@ int buildServer(std::string portno){
 				//Store player in first players slot
 				players.first = fd;
 				playerCount++;
+				std::string chs = "S" + std::to_string(currentHighscore);
+				int n1 = write(players.first, chs.c_str(), chs.size());   //First HS
+				if(n1 == 0 || n1 == -1){
+					players.first =  0;
+					playerCount--;
+				}
 			} else {
-				//Store player in second players slotj
+				//Store player in second players slot
 				players.second = fd;
 				playerCount++;
+				std::string chs = "S" + std::to_string(currentHighscore);
+				
+				int n1 = write(players.first, chs.c_str(), chs.size());   //First HS
+				int n2 = write(players.second, chs.c_str(), chs.size());
+				
+				if(n1 == 0 || n1 == -1){
+					players.first = players.second;
+					players.second = 0;
+					playerCount--;
+					continue;
+				}
+				
+				n1 = read(players.first, buf1, 16*sizeof(char));	//Read for start
+				n2 = read(players.second, buf2, 16*sizeof(char));		//CTRL+C or Q will close cliSock
+				if(std::string(buf1) == "start" && std::string(buf2) == "start"){ //If both start
+					n1 = write(players.first, "1", chs.size());
+					n2 = write(players.second, "2", chs.size());
+				} else {
+					
+					if(n2 == 0 || n2 == -1){
+						std::cout << "p2 bad read: " << buf2 << std::endl;
+						players.second = 0;
+						playerCount--;
+					}
+					if(n1 == 0 || n1 == -1){
+						std::cout << "p1 bad read: " << buf1 << std::endl;
+						players.first = players.second;
+						players.second = 0;
+						playerCount--;
+					}
+					continue;
+				}
+				
 				//Store pair of players
 				games.push_back(players);
 				//Fork a game for players
@@ -337,6 +390,8 @@ int buildServer(std::string portno){
 					setSignalActions(SIGTERM);
 					//Child Process
 					playGame(games[playerCount/2 - 1]);
+					free(buf1);
+					free(buf2);
 					exit(0);
 				//Else process is parent...
 				} else {
@@ -365,42 +420,30 @@ int buildServer(std::string portno){
 
 //Child process... I.e. Game loop goes here
 void playGame(std::pair<int,int> player) {
+	srand(time(NULL));
 	//Creates dummy inetSockets to allow reading from file descriptors
 	inetSock player1(player.first);
 	inetSock player2(player.second);
-	std::string curHS = std::to_string(currentHighscore);
-	
-	player1.writeToSock(curHS);
-	player2.writeToSock(curHS);
-	
+
 	std::string p1msg, p2msg;
-	
-	p1msg = player1.readFromSock(512);
-	p2msg = player2.readFromSock(512);
-	if(p1msg == p2msg){
-		player1.writeToSock("1");
-		player2.writeToSock("2");
-	} else {
-		player1.writeToSock("stop");
-		player2.writeToSock("stop");
-		return;
-	}
-	
+
 	fd_set players;
 	FD_ZERO(&players);
 
 	int highFD = (player1.getFD() > player2.getFD()) ? player1.getFD() : player2.getFD();
 
 	struct timeval timeout;
+
+	sleep(3);
 	
     std::chrono::high_resolution_clock::time_point score1 = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point enemy_s, enemy_f, pit_s, pit_f;
+    std::chrono::high_resolution_clock::time_point enemy_life_s, enemy_s, enemy_f, pit_s, pit_f;
 
 	enemy_s = std::chrono::high_resolution_clock::now();
 	
 	pit_s = std::chrono::high_resolution_clock::now();
 	int pitRandPeriod = rand() % 8;
-	bool enemy = false;
+	int enemyRand = rand() % 6;
 	
 	while(player1.isOpen() && player2.isOpen()){
 
@@ -415,13 +458,12 @@ void playGame(std::pair<int,int> player) {
 		select(highFD+1, &players, NULL, NULL, &timeout);
 		if(FD_ISSET(player1.getFD(), &players)){
 			p1msg += player1.readFromSock(512);
-			if(p1msg == "HE"){
-				enemy = false;
-			} else if (p1msg == "H "){
+			if (p1msg == "H "){
 				player1.writeToSock("HA");
 				player2.writeToSock("HA");
 			} else if(p1msg.size() == 1){
 				player1.Close();
+				player2.writeToSock("KILL");
 			} else {
 				player1.writeToSock(p1msg);
 				player2.writeToSock(p1msg);
@@ -430,13 +472,12 @@ void playGame(std::pair<int,int> player) {
 		
 		if(FD_ISSET(player2.getFD(), &players)){
 			p2msg += player2.readFromSock(512);
-			if(p2msg == "HE"){
-				enemy = false;
-			} else if (p2msg == "H "){
+			if (p2msg == "H "){
 				player1.writeToSock("HJ");
 				player2.writeToSock("HJ");
 			} else if(p2msg.size() == 1){
 				player2.Close();
+				player1.writeToSock("KILL");
 			} else {
 				player1.writeToSock(p2msg);
 				player2.writeToSock(p2msg);
@@ -446,12 +487,12 @@ void playGame(std::pair<int,int> player) {
 		enemy_f = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::milli> enemy_cont = (enemy_f - enemy_s);
 	
-		
 		if(enemy_cont.count() > (double)POLL_PERIOD_MILLI/2.0){
-			enemy_s = enemy_f;			//Reset start point
 			
+			enemy_s = enemy_f;			//Reset start point
+			std::chrono::duration<double, std::milli> enemy_life = (enemy_f - enemy_life_s);
 			std::string enemyCommand = "E";//Prep msg
-			if(enemy){
+			if(enemy_life.count() < 5000.0 + (enemyRand * POLL_PERIOD_MILLI)){
 				int enemyDir = rand() % 2;	//Select direction randomly
 	
 				//Up Encoding
@@ -463,8 +504,12 @@ void playGame(std::pair<int,int> player) {
 				}
 				
 			} else {
-				enemyCommand += "S";			//Spawn
-				enemy = true;
+				int randE = rand() % 2;
+				enemyRand = rand() % 6;
+				enemyCommand += "S";
+				enemyCommand += std::to_string(randE);			//Spawn
+				std::cout << enemyCommand << std::endl;
+				enemy_life_s = enemy_f;
 			}
 			player1.writeToSock(enemyCommand);
 			player2.writeToSock(enemyCommand);
@@ -476,6 +521,7 @@ void playGame(std::pair<int,int> player) {
 			pit_s = pit_f;				//Reset clock
 			pitRandPeriod = rand() % 8;	//New random number of periods
 			int randPit = rand() % 10;
+			std::cout << "P" << randPit << std::endl;
 			player1.writeToSock("P" + std::to_string(randPit));	//Trigger new pit
 			player2.writeToSock("P" + std::to_string(randPit));	//Trigger new pit
 		}

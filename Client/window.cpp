@@ -64,11 +64,12 @@ WINDOW* Window::getSquishedWindow(int howSmall)
 {
     int startCol = this->width - howSmall;
     
-
+    
     WINDOW* squishedWindow = newwin(this->height, howSmall, this->y, 0); 
 
     if( copywin(this->top, squishedWindow, 0, startCol, 0, 0, this->height-1, howSmall-1, false) == ERR)
     {
+        endwin();
         cerr << "Error copying shrunk window" << endl;
         cout << "height = " << this->height << endl;
         cout << "howsmall = " << howSmall << endl;
@@ -106,12 +107,12 @@ Window* Window::getBackgroundFromFile(int k)
       	Window* bg = new Window (rows, cols, 0, 0);
         inputFile.close();               // "Unlocks" the file for processing after reaching EOF
     
-        bg->showBgAt(0, 1000, 1000);
+        bg->showBgAt(0, 0, 1000, 1000, 1000, 1000);
         return bg;
     }
 }
 
-void Window::showBgAt(int k, int waterStartIdx, int waterEndIdx)
+void Window::showBgAt(int k, int area, int forestStart, int sandStart, int waterStartIdx, int waterEndIdx)
 {
     string path = "./Images/background.txt";
     string line;
@@ -129,13 +130,13 @@ void Window::showBgAt(int k, int waterStartIdx, int waterEndIdx)
     
     WINDOW* bgFromFile = this->getTop();
     bool screenAllWater = ( k >= waterStartIdx && k <= waterEndIdx );
+
     // Here we would put -if only water level on screen, use COLOR_SCHEME(7)
-    if(screenAllWater) 
-        wattron(bgFromFile, COLOR_PAIR(7)); 
-    else if(k < 508)
-        wattron(bgFromFile, COLOR_PAIR(1));
-    else
-        wattron(bgFromFile, COLOR_PAIR(9));
+    int nextArea = area+1;
+    if(nextArea > END){
+        nextArea = ARENA;
+    }
+    wattron(bgFromFile, COLOR_PAIR(area));
     
     for (int r=0; r<screenYSize; r++)
     { // Get the file and put it in the window
@@ -145,51 +146,32 @@ void Window::showBgAt(int k, int waterStartIdx, int waterEndIdx)
   	        line.erase(line.begin(), line.begin()+k);
 	        temp.erase(temp.begin()+k, temp.end());
 	        line.insert(line.length()-1,temp);
-	        
-	        
-    	    if( k < waterStartIdx && k + screenXSize > waterStartIdx)
+	        wattroff(bgFromFile, COLOR_PAIR(nextArea));
+            wattron(bgFromFile, COLOR_PAIR(area));
+            for(int col=0; col < screenXSize; col++)
             {
-                wattroff(bgFromFile, COLOR_PAIR(7));
-                wattron(bgFromFile, COLOR_PAIR(1));
-                for(int col=0; col < screenXSize; col++)
+                if (col >= waterStartIdx-k)   
                 {
-                    if (col == waterStartIdx-k)   
-                    {
-                        wattroff(bgFromFile, COLOR_PAIR(1));
-                        wattron(bgFromFile, COLOR_PAIR(7));
-                    }
-                    mvwaddch(bgFromFile, r, col, line[col]);
+                    wattroff(bgFromFile, COLOR_PAIR(area));
+                    wattron(bgFromFile, COLOR_PAIR(nextArea));
                 }
-            }    // mvwchgat(bgFromFile, row, waterStartIdx-k , -1, A_INVIS, COLOR_PAIR(7), NULL);
-            else if( k < waterEndIdx && k + screenXSize > waterEndIdx)
-            {    
-                wattroff(bgFromFile, COLOR_PAIR(1));
-                wattron(bgFromFile, COLOR_PAIR(7));
-                for(int col=0; col < screenXSize; col++)
-                {
-                    if (col == waterEndIdx-k)   
-                    {
-                        wattroff(bgFromFile, COLOR_PAIR(7));
-                        wattron(bgFromFile, COLOR_PAIR(1));
-                    }
-                    mvwaddch(bgFromFile, r, col, line[col]);
-                }                
-            }    
-	        else if(!screenAllWater && k >= 508 && r == 29 )
-	        {
-	            wattroff(bgFromFile, COLOR_PAIR(9));
-	            wattron(bgFromFile, COLOR_PAIR(1));
-	        }
-	        else
-                mvwprintw(bgFromFile, r, 0, line.c_str());
+                mvwaddch(bgFromFile, r, col, line[col]);
+            }
         }
-    }   
-    if(screenAllWater)
-        wattroff(bgFromFile, COLOR_PAIR(7));
-    else if(k < 508)
-        wattroff(bgFromFile, COLOR_PAIR(1));
-    else 
-        wattroff(bgFromFile, COLOR_PAIR(9));        
+    }
+    
+    if(k < forestStart)
+        wattroff(bgFromFile, COLOR_PAIR(color::ARENA));
+    else if(k >= forestStart && k < sandStart)
+        wattroff(bgFromFile, COLOR_PAIR(color::FOREST));
+    else if(k >= sandStart && k < waterStartIdx )
+        wattroff(bgFromFile, COLOR_PAIR(color::BEACH));
+    else if(k >= waterStartIdx && k < waterEndIdx){
+        wattroff(bgFromFile, COLOR_PAIR(color::SHALLOW_WATER));
+    } else
+        wattroff(bgFromFile, COLOR_PAIR(color::END));
+        
+   
 
     wrefresh(bgFromFile);
     inputFile.close();
@@ -265,49 +247,49 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
                     case 49: j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);
-                            currentScheme = COLOR_PAIR(1);
+                            currentScheme = COLOR_PAIR(color::GW_ONE);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 50: j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(2);
+                            currentScheme = COLOR_PAIR(color::GW_TWO);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 51: j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(3);
+                            currentScheme = COLOR_PAIR(color::GW_THREE);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 52:j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(4);
+                            currentScheme = COLOR_PAIR(color::GW_FOUR);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 53:j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(5);
+                            currentScheme = COLOR_PAIR(color::GW_FIVE);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 54: j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(6);
+                            currentScheme = COLOR_PAIR(color::GW_SIX);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 55: j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(7);
+                            currentScheme = COLOR_PAIR(color::GW_SEVEN);
                             wattron(windowFromFile, currentScheme);
                             break;
                     case 56: j--;
                             prevScheme = currentScheme;
                             wattroff(windowFromFile, currentScheme);                        
-                            currentScheme = COLOR_PAIR(8);
+                            currentScheme = COLOR_PAIR(color::GW_EIGHT);
                             wattron(windowFromFile, currentScheme);
                             break;
                     default:
