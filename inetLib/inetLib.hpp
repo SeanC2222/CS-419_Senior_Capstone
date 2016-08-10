@@ -58,8 +58,8 @@ public:
    struct addrinfo getHints() const;
 
    //Data Functions
-   int writeToSock(const std::string, const int);
-   int writeToSock(const char*, const int);
+   int writeToSock(const std::string);
+   int writeToSock(const char*);
    std::string readFromSock(const int);
 };
 

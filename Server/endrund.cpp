@@ -17,6 +17,8 @@
 
 //Definitions
 #define DEFAULT_PORT "52010"
+#define POLL_PERIOD_MILLI POLL_PERIOD_MICRO/1000.0 //Must be per Micro
+#define POLL_PERIOD_MICRO 500000                   //Needs to be int
 
 //Set up Signal Handlers
 void setSignalActions(int);
@@ -368,19 +370,19 @@ void playGame(std::pair<int,int> player) {
 	inetSock player2(player.second);
 	std::string curHS = std::to_string(currentHighscore);
 	
-	player1.writeToSock(curHS, curHS.size());
-	player2.writeToSock(curHS, curHS.size());
+	player1.writeToSock(curHS);
+	player2.writeToSock(curHS);
 	
 	std::string p1msg, p2msg;
 	
 	p1msg = player1.readFromSock(512);
 	p2msg = player2.readFromSock(512);
 	if(p1msg == p2msg){
-		player1.writeToSock("1", 1);
-		player2.writeToSock("2", 1);
+		player1.writeToSock("1");
+		player2.writeToSock("2");
 	} else {
-		player1.writeToSock("stop", 4);
-		player2.writeToSock("stop", 4);
+		player1.writeToSock("stop");
+		player2.writeToSock("stop");
 		return;
 	}
 	
@@ -392,19 +394,20 @@ void playGame(std::pair<int,int> player) {
 	struct timeval timeout;
 	
     std::chrono::high_resolution_clock::time_point score1 = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point t1, t2, t3, t4;
+    std::chrono::high_resolution_clock::time_point enemy_s, enemy_f, pit_s, pit_f;
 
-	t1 = std::chrono::high_resolution_clock::now();
-	t3 = std::chrono::high_resolution_clock::now();
+	enemy_s = std::chrono::high_resolution_clock::now();
 	
+	pit_s = std::chrono::high_resolution_clock::now();
+	int pitRandPeriod = rand() % 8;
 	bool enemy = false;
 	
 	while(player1.isOpen() && player2.isOpen()){
 
 		p1msg = p2msg = "H";
 		
-		timeout.tv_sec = 1;
-		timeout.tv_usec = 0;
+		timeout.tv_sec = 0;
+		timeout.tv_usec = POLL_PERIOD_MICRO;
 		
 		FD_SET(player1.getFD(), &players);
 		FD_SET(player2.getFD(), &players);
@@ -412,53 +415,69 @@ void playGame(std::pair<int,int> player) {
 		select(highFD+1, &players, NULL, NULL, &timeout);
 		if(FD_ISSET(player1.getFD(), &players)){
 			p1msg += player1.readFromSock(512);
-			if(p1msg.size() == 1){
+			if(p1msg == "HE"){
+				enemy = false;
+			} else if (p1msg == "H "){
+				player1.writeToSock("HA");
+				player2.writeToSock("HA");
+			} else if(p1msg.size() == 1){
 				player1.Close();
+			} else {
+				player1.writeToSock(p1msg);
+				player2.writeToSock(p1msg);
 			}
-			player1.writeToSock(p1msg, 512);
-			player2.writeToSock(p1msg, 512);
 		}
 		
 		if(FD_ISSET(player2.getFD(), &players)){
 			p2msg += player2.readFromSock(512);
-			if(p2msg.size() == 1){
+			if(p2msg == "HE"){
+				enemy = false;
+			} else if (p2msg == "H "){
+				player1.writeToSock("HJ");
+				player2.writeToSock("HJ");
+			} else if(p2msg.size() == 1){
 				player2.Close();
-			}
-			player1.writeToSock(p2msg, 512);
-			player2.writeToSock(p2msg, 512);
-		}
-		
-		t2 = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> enemy_cont = std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
-	
-		if(enemy_cont.count() > ((double) 50.0)){
-			t1 = t2;
-			int enemyDir = rand() % 7;
-			std::string enemyMove = "E";
-			//Up Encoding
-			if(enemyDir == 0){
-			      enemyMove += "0";
-			//Down Encoding
-			} else if (enemyDir == 1){
-			      enemyMove += "1";
-			//Right Encoding
-			} else if (enemyDir == 2){
-			      enemyMove += "3";
-			//Left Encoding
 			} else {
-			      enemyMove += "2";
+				player1.writeToSock(p2msg);
+				player2.writeToSock(p2msg);
 			}
-			
-			player1.writeToSock(enemyMove, 2);
-			player2.writeToSock(enemyMove, 2);
 		}
-		t4 = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> pit_cont = std::chrono::duration_cast<std::chrono::duration<double>>(t4-t3);
 		
-		if(pit_cont.count() > ((double)200.0)){
-			t3 = t4;
-			player1.writeToSock("P",1);
-			player2.writeToSock("P",1);
+		enemy_f = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> enemy_cont = (enemy_f - enemy_s);
+	
+		
+		if(enemy_cont.count() > (double)POLL_PERIOD_MILLI/2.0){
+			enemy_s = enemy_f;			//Reset start point
+			
+			std::string enemyCommand = "E";//Prep msg
+			if(enemy){
+				int enemyDir = rand() % 2;	//Select direction randomly
+	
+				//Up Encoding
+				if(enemyDir == 0){
+				      enemyCommand += "0";		//Up
+				//Down Encoding
+				} else {
+				      enemyCommand += "1";		//Down
+				}
+				
+			} else {
+				enemyCommand += "S";			//Spawn
+				enemy = true;
+			}
+			player1.writeToSock(enemyCommand);
+			player2.writeToSock(enemyCommand);
+		}
+		pit_f = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> pit_cont = (pit_f - pit_s);
+		
+		if(pit_cont.count() > (4 + pitRandPeriod)*(double)POLL_PERIOD_MILLI){
+			pit_s = pit_f;				//Reset clock
+			pitRandPeriod = rand() % 8;	//New random number of periods
+			int randPit = rand() % 10;
+			player1.writeToSock("P" + std::to_string(randPit));	//Trigger new pit
+			player2.writeToSock("P" + std::to_string(randPit));	//Trigger new pit
 		}
 	
 		std::chrono::high_resolution_clock::time_point score2 = std::chrono::high_resolution_clock::now();

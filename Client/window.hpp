@@ -7,7 +7,7 @@
 
 using namespace std;
 
-enum class WinType { BACKGROUND, ENEMY, WALL, HERO, PIT, DEATH };
+enum class WinType { BACKGROUND, ENEMY, WALL, HERO, PIT, DEATH, JAVELIN, SCORE};
 
 class Window
 {
@@ -18,11 +18,12 @@ class Window
                                         // The variables x and y are storing the x and y values of the PANEL in which the window is set
         WinType type;
     protected:
-        int nextWindowIndex; // Used to toggle hidden windows to show animations
+        int windowIndex, screenBottomLimit, screenRightLimit; 
         WINDOW* top;                    // Used to track the currently visible window in animations
         vector <WINDOW*> win;
 
     public:
+        virtual ~Window();
         Window(int height, int width, int xStart, int yStart);
         Window(string filename, int xStart, int yStart, WinType type, int colorScheme);
         WINDOW* getWinFromFile(string filename, int xValue, int yValue, unsigned int colorScheme);
@@ -31,6 +32,7 @@ class Window
         void setPanelIndex(int PanelNum);
         int getBasePanelIndex();
         int getPanelIndex();
+        void saveScreenLimits(int width, int height);
         int getX();
         void setX(int newX);
         int getY();

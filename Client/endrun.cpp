@@ -22,6 +22,7 @@
 
 //Global Flag to tell threads to shutdown
 sig_atomic_t threadEnd = 0;
+sig_atomic_t currentHighscore = 0;
 
 //Signal handler for signals to shutdown
 void intAction(int sigNum){
@@ -111,41 +112,45 @@ void readFunc(void* argsV){
     bool playerOne = *(bool*)args[1];
     Screen* main = (Screen*)args[2];
 
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+
     std::vector< std::vector<std::string> > enemies = getEnemyFiles();
     std::vector< std::vector<std::string> > pools = getPoolFiles();
     std::vector< std::vector<std::string> > pits = getPitFiles();
+    vector<string>javelinFile{"javelin.txt"};
+    Window * javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(3));
     
-    main->setHero(10,10);
-    Window* enemy;      // Need a more elegant way to add things.  Maybe call these from a single function in Screen.
-    Window* pit;
-    
-    main->update();
+    Hero* hero;
+    Enemy* enemy;    
+    std::vector<Window*> activePits;
 
-    int rows, cols;
-    getmaxyx(stdscr, rows, cols);
-    
+    Score* curScore = new Score("", cols-12, 2, WinType::SCORE, COLOR_PAIR(10));
+    main->putOnScreen(curScore, cols-12, 1);
 
     setSignalActions(0);
     setSignalActions(SIGINT);
     setSignalActions(SIGTERM);
-    
-    double backgroundTracker = 0.0;
-    double backgroundUpdatePoint = 15.0;
+
     double rate = 1.0;
-    
-    int frame = 0;
+
     int j = 0;
-    
+
     int pitNum = 0;
     int locNum = 0;
-    std::vector<int> pitLoc = {0, 10, 40, 50};
-    
+    std::vector<int> pitLoc = {0, 20, 10, 30, 15, 5};
+
+
     fd_set sock;
     FD_ZERO(&sock);
     struct timeval timeout;
     std::string msg;
 
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point refresh_s, refresh_f, enemy_s, enemy_f;
+    refresh_s = std::chrono::high_resolution_clock::now();
+
+    hero = main->getHero(10, 10);
+    main->update();
 
     std::ofstream ofs ("ofs.txt", std::ofstream::out | std::ofstream::app);
     while(cliSock.isOpen() && !threadEnd){
@@ -166,63 +171,88 @@ void readFunc(void* argsV){
                 mvprintw(rows/2, cols/2-10, msg.c_str());
                 refresh();
                 threadEnd = 1;
+                sleep(2);
                 break;
             } else if(msg.size() > 0){
                 ofs << msg << std::endl;
                 for(int i = 0; i < msg.size(); i++){
                     char ch = msg[i];
+                    int e;
+
                     if(ch == 'H'){
                         ch = msg[++i];
                         switch(ch){
-                            
+
                         case 3: //Up Encoding
-                            main->moveHero("up");
-                            break;
+                            hero->move("up", 1);
+                            continue;
                         case 2: //Down Encoding
-                            main->moveHero("down");
-                            break;
+                            hero->move("down", 1);
+                            continue;
                         case 4: //Left Encoding
-                            main->moveHero("left");
-                            break;
+                            hero->move("left", 1);
+                            continue;
                         case 5: //Right Encoding
-                            main->moveHero("right");
-                            break;
+                            hero->move("right", 1);
+                            continue;
+                        case 'A':
+                           //Throw javelin
+                            main->putOnScreen(javelin, hero->getX(), hero->getY());
+                            continue;
+                        case 'J':
+                            hero->move("jump", main->getLevel());
+                            continue;
                         }
-                    }
-                    
-                    int e;
-                    if (ch == 'E'){
+                    } else if (ch == 'E'){
                         ch = msg[++i];
                         switch(ch){
-                        
+
                         case 'S': //Spawn Encoding
-                            //e = main->getLevel();
-                            //enemy = main->loadImages(enemies[e], WinType::ENEMY, COLOR_PAIR(1 + main->getLevel() % 8));
-                            //main->putOnScreen(enemy, 150, 10);
-                            break;
+                            enemy = main->loadEnemy(enemies[e], COLOR_PAIR(1 + main->getLevel() % 8));
+                            main->putOnScreen(enemy, 150, 10);
+                            continue;
                         case '0': //Up Encoding
-                            //main->moveWin("up", enemy);
-                            break;
+                            continue;
+                            enemy->move("up", 1);
                         case '1': //Down Encoding
-                            //main->moveWin("down", enemy);
-                            break;
+                            enemy->move("down", 1);
+                            continue;
                         case '2': //Left Encoding
-                            //main->moveWin("left", enemy);
-                            break;
+                            enemy->move("left", 1);
+                            continue;
                         case '3': //Right Encoding
-                            //main->moveWin("right", enemy);
-                            break;
+                            enemy->move("right", 1);
+                            continue;
                         }
-                    }
-                    
-                    if (ch == 'P'){
-                        //pit = main->loadImages(pits[pitNum], WinType::PIT, COLOR_PAIR(1 + main->getLevel() % 8));
-                        //main->putOnScreen(pit, 150, pitLoc[locNum++]);
-                        //if(locNum >= pitLoc.size()){
-                        //    locNum = 0;
-                        //}
+                    } else if (ch == 'P'){
+                        ch = msg[++i] - 48; // '0' character is value 48; 48 corrects to 0
                         
+                        if(main->getArea() == AREA_TYPE::SHALLOW_WATER || main->getArea() == AREA_TYPE::DEEP_WATER){
+                           activePits.push_back(main->loadImages(pools[ch % pools.size()], WinType::PIT, COLOR_PAIR(7)));
+                        } else {
+                           activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(2)));
+                        }
+                        main->putOnScreen(activePits[activePits.size()-1], 150, pitLoc[locNum++]);
+                        if(locNum >= pitLoc.size()){
+                            locNum = 0;
+                        }
+
+                    } else if (ch == 'S'){
+                        currentHighscore = atoi(msg.c_str() + (++i));
+                        attrset(COLOR_PAIR(9));
+                        mvprintw(2, cols-15, msg.c_str()+i);
+                        int nextMsg = std::string(msg.c_str()+i).find_first_not_of("1234567890");
+                        if(nextMsg > 0){
+                           i += nextMsg;
+                        } else {
+                           i += msg.size() - i;
+                        }
+                        continue;
+                    } else if (ch == 'K'){
+                        cliSock.Close();
+                        threadEnd = 1;
                     }
+
                     
                 }
             } else {
@@ -231,25 +261,30 @@ void readFunc(void* argsV){
                 exit(-1);
             }
         }
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> tDur = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        refresh_f = std::chrono::high_resolution_clock::now();
         
-        if(tDur.count() > ((double)1.0/20.0)){
-            t1 = t2;
-            backgroundTracker += rate;
-            if(backgroundTracker >= backgroundUpdatePoint){
-                j++;
-                backgroundTracker = 0;
-                if (j==175){  //max column size of bg file and should be updated accordingly
-                    j=0;
-                    backgroundUpdatePoint -= backgroundUpdatePoint*rate;
-                    rate *= .9;
-                }
+        std::chrono::duration<double, std::milli> tDur = (refresh_f - refresh_s);
+        
+        if(tDur.count() > (double)(1000.0/20.0) ){
+            refresh_s = refresh_f;
+            if(main->update()){
+                threadEnd = 1;
+                break;
             }
-            main->update();
         }
     }
-    
+
+    if(cliSock.isOpen()){
+        cliSock.Close();
+    }
+    if(hero != NULL){
+      delete hero;
+    }
+
+    if(enemy != NULL){
+      delete enemy;
+    }
+    ofs << "Returning..." << (playerOne ? "1" : "2") << std::endl;
     endwin();
     return;
 }
@@ -267,12 +302,12 @@ void writeFunc(void* argsV){
     while(cliSock.isOpen() && !threadEnd){
         msg = "";
         if( (ch = getch()) != ERR){
-            if(playerOne && (ch == 2 || ch == 3)){
+            if(playerOne && (ch == 2 || ch == 3 || ch == ' ')){
                 msg += ch;
-                cliSock.writeToSock(msg, msg.size());
-            } else if (!playerOne && (ch == 4 || ch == 5)){
+                cliSock.writeToSock(msg);
+            } else if (!playerOne && (ch == 4 || ch == 5 || ch == ' ')){
                 msg += ch;
-                cliSock.writeToSock(msg, msg.size());
+                cliSock.writeToSock(msg);
             }
         } else {
             msg = "";
@@ -352,7 +387,7 @@ int menu(inetSock &cliSock, Screen* main)
         return 0;
     else if(ch==' '){
         std::string msg = "start";
-        cliSock.writeToSock(msg, msg.size());
+        cliSock.writeToSock(msg);
         y++;
         x=col/2-12;
         mvprintw(y,x, "Waiting on other player...");

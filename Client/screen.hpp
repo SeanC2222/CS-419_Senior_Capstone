@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 
+enum AREA_TYPE { ARENA, FOREST, BEACH, SHALLOW_WATER, DEEP_WATER };
 
 class Screen
 {
@@ -22,20 +23,24 @@ class Screen
         Window* bgWindow;
         Hero* hero;
         Window* deathAnimation;
-        int level, bgIndex, deathFrame, screenHeight, screenWidth, waterStart, waterEnd;
+        int level, screenHeight, screenWidth;
+        int deathFrame;
+        int bgIndex, area, forestStart, sandStart, waterStart, waterMid, waterEnd;
         void addToPanelLevel(Window* image);
         bool dead;
-     
+        
      public:
         void init();
         int getLevel();
+        int getArea();
+        bool heroIsAlive();
+        
         int update();
-        void moveHero(string direction);
-        void moveWin(string direction, Window* W);
         Window* loadImages(vector<string> filenames, WinType type, int colorScheme);
+        Enemy* loadEnemy(vector<string> filenames, int colors);
         void playAnimation(Window* win, int x, int y);
         void putOnScreen(Window* image, int X, int Y);
-        void setHero(int x, int y);
+        Hero* getHero(int x, int y);
         void removeFromScreen(Window* image);
         void loadDeathAnimations();
         void checkIfDead();

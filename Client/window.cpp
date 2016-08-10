@@ -7,7 +7,7 @@
 Window::Window(int height, int width, int xStart, int yStart) : height(height), width(width), x(xStart), y(yStart)
 {
     this->win.push_back( newwin(height, width, x, y) );
-    this->nextWindowIndex = 0;
+    this->windowIndex = 0;
     this->top = this->win[0];
     this->type = WinType::BACKGROUND;
 }
@@ -19,11 +19,31 @@ Window::Window(int height, int width, int xStart, int yStart) : height(height), 
  */
 Window::Window(string filename, int xStart, int yStart, WinType type, int colorScheme) : x(xStart), y(yStart), type(type)
 {
-    WINDOW* newWindow = getWinFromFile(filename, xStart, yStart, colorScheme);
+    WINDOW* newWindow;
+    if(type == WinType::SCORE){
+      newWindow = newwin(1, 10, yStart, xStart);
+    } else {
+      newWindow = getWinFromFile(filename, xStart, yStart, colorScheme);
+    }
+
     this->win.push_back( newWindow );
     getmaxyx(newWindow, this->height, this->width);
-    this->nextWindowIndex = 0;
+    this->windowIndex = 0;
     this->top = this->win[0];
+}
+
+Window::~Window()
+{
+    for(unsigned int i=0; i < this->win.size(); i++)
+    {
+        delwin(win[i]);
+    }
+}
+
+void Window::saveScreenLimits(int width, int height)
+{
+    screenBottomLimit = height;
+    screenRightLimit = width;
 }
 
 
@@ -32,7 +52,7 @@ void Window::appendAnimation(string filename, int colorScheme)
 {
     WINDOW* frame = getWinFromFile(filename, this->x, this->y, colorScheme);
     this->win.push_back(frame);
-    this->nextWindowIndex = 1;          // This will only be called during initialization, so the "first" next index will always be 1
+    this->windowIndex = 1;          // This will only be called during initialization, so the "first" next index will always be 1
 }
 
 bool Window::isLastAnimationFrame()
@@ -112,8 +132,10 @@ void Window::showBgAt(int k, int waterStartIdx, int waterEndIdx)
     // Here we would put -if only water level on screen, use COLOR_SCHEME(7)
     if(screenAllWater) 
         wattron(bgFromFile, COLOR_PAIR(7)); 
-    else
+    else if(k < 508)
         wattron(bgFromFile, COLOR_PAIR(1));
+    else
+        wattron(bgFromFile, COLOR_PAIR(9));
     
     for (int r=0; r<screenYSize; r++)
     { // Get the file and put it in the window
@@ -153,14 +175,21 @@ void Window::showBgAt(int k, int waterStartIdx, int waterEndIdx)
                     mvwaddch(bgFromFile, r, col, line[col]);
                 }                
             }    
+	        else if(!screenAllWater && k >= 508 && r == 29 )
+	        {
+	            wattroff(bgFromFile, COLOR_PAIR(9));
+	            wattron(bgFromFile, COLOR_PAIR(1));
+	        }
 	        else
                 mvwprintw(bgFromFile, r, 0, line.c_str());
         }
     }   
     if(screenAllWater)
         wattroff(bgFromFile, COLOR_PAIR(7));
-    else
+    else if(k < 508)
         wattroff(bgFromFile, COLOR_PAIR(1));
+    else 
+        wattroff(bgFromFile, COLOR_PAIR(9));        
 
     wrefresh(bgFromFile);
     inputFile.close();
@@ -297,8 +326,8 @@ WINDOW* Window::getWinFromFile(string filename, int xStart, int yStart, unsigned
 void Window::rotate()
 {
     // If the index points out of the vector, set to 0, otherwise, increment
-    nextWindowIndex = ( (unsigned int)this->nextWindowIndex + 1 >= this->win.size() ? 0 : this->nextWindowIndex + 1);
-    this->top = win[ this->nextWindowIndex ];                       // The current top window is now the next window in the array
+    windowIndex = ( (unsigned int)this->windowIndex + 1 >= this->win.size() ? 0 : this->windowIndex + 1);
+    this->top = win[ this->windowIndex ];                       // The current top window is now the next window in the array
 }
 
 void Window::setPanelIndex(int PanelNum)

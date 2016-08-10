@@ -254,8 +254,9 @@ struct addrinfo inetSock::getAddr() const {return this->addr;}
 struct addrinfo inetSock::getHints() const{return this->hints;}
 
 //Interaction Functions
-int inetSock::writeToSock(const std::string data, const int size){
+int inetSock::writeToSock(const std::string data){
    int progress = 0, writeN = 0, writeCount = 0;
+   int size = data.size();
    //Tries to complete writing data up to 4 times
    while(progress < size && writeCount < 4){
       writeN += write(this->sFD, data.c_str() + progress, size - progress);
@@ -269,8 +270,9 @@ int inetSock::writeToSock(const std::string data, const int size){
    return progress;
 }
 
-int inetSock::writeToSock(const char* data, const int size){
+int inetSock::writeToSock(const char* data){
    int progress = 0, writeN = 0, writeCount = 0;
+   int size = strlen(data);
    //Tries to complete writing data up to 4 times
    while(progress < size && writeCount < 4){
       writeN += write(this->sFD, data + progress, size - progress);

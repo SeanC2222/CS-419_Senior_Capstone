@@ -19,14 +19,15 @@ void Screen::init()
     
     // Should probably put these in a function later: initColors(int level)
     init_pair(1, COLOR_GREEN, COLOR_YELLOW);    
-    init_pair(2, COLOR_MAGENTA, COLOR_YELLOW);
+    init_pair(2, COLOR_BLACK, COLOR_YELLOW);
     init_pair(3, COLOR_RED, COLOR_YELLOW);
     init_pair(4, COLOR_WHITE, COLOR_YELLOW);
-    init_pair(5, COLOR_WHITE, COLOR_MAGENTA);
-    init_pair(6, COLOR_MAGENTA, COLOR_BLUE);
+    init_pair(5, COLOR_WHITE, COLOR_BLACK);
+    init_pair(6, COLOR_BLACK, COLOR_BLUE);
     init_pair(7, COLOR_WHITE, COLOR_BLUE);
     init_pair(8, COLOR_RED, COLOR_BLUE);
-
+    init_pair(9, COLOR_MAGENTA, COLOR_YELLOW);
+    init_pair(10, COLOR_RED, COLOR_BLACK);
 
     cbreak();                   // Don't wait for user to hit 'enter'
     noecho();                   // Don't display user input on screen
@@ -37,10 +38,14 @@ void Screen::init()
     addToPanelLevel(this->bgWindow);
     loadDeathAnimations();
     this->level = 1;
+    this->area = 1;
     this->bgIndex= 0;       // Scroll the bg file starting at col 0
     getmaxyx(stdscr, screenHeight, screenWidth);
-    waterStart = 641;
-    waterEnd = 937;
+    forestStart = 502;
+    sandStart = 1350;
+    waterStart = 1418;
+    waterMid = 1740;
+    waterEnd = 2178;
     deathAnimation = NULL;
     dead = false;
     deathFrame = 1;
@@ -52,8 +57,22 @@ void Screen::init()
 /**
  * Returns the current level dictated by background
  **/
-int Screen::getLevel(){
+int Screen::getLevel()
+{
     return this->level;
+}
+
+/**
+ * Returns the current level dictated by background
+ **/
+int Screen::getArea()
+{
+    return this->area;
+}
+
+bool Screen::heroIsAlive()
+{
+    return !this->dead;
 }
 
 /* This function will be called at the refresh rate
@@ -66,6 +85,19 @@ int Screen::update()
     if(!dead)
         checkIfDead();
  
+    if(bgIndex < forestStart){
+        area = ARENA;
+    } else if (bgIndex >= forestStart && bgIndex < sandStart){
+        area = FOREST;
+    } else if (bgIndex >= sandStart && bgIndex < waterStart){
+        area = BEACH;
+    } else if (bgIndex >= waterStart && bgIndex < waterMid){
+        area = SHALLOW_WATER;
+    } else {
+        area = DEEP_WATER;
+    }
+
+ 
     if( dead )
     {
         this->deathFrame++;
@@ -74,7 +106,7 @@ int Screen::update()
         {
             update_panels();
             doupdate();
-            usleep(4000000);
+            usleep(3000000);
             return(1);
         }
     }
@@ -82,18 +114,43 @@ int Screen::update()
     // Move any active (on screen) windows
     if( !dead )
     {
-        bgWindow->showBgAt(bgIndex++, waterStart, waterEnd);    // Scroll the background here
-        if (bgIndex==1000)  //max column size of bg file and should be updated accordingly
+        bgIndex += level;
+        bgWindow->showBgAt(bgIndex, waterStart, waterEnd);    // Scroll the background here
+        if (bgIndex==2300)  //max column size of bg file and should be updated accordingly
+        {
             bgIndex=0;  
+            level++;
+        }
 
-        if( (hero->getX() + bgIndex >= waterStart -18) && (hero->getX() + bgIndex < waterStart - 14) )    // Rotate is called every 3 bg scrolls, so when in the range of the water, start swimming
+        if( (hero->getX() + hero->getWidth() + bgIndex >= waterStart-3) && (hero->getX() + hero->getWidth() + bgIndex < waterStart+1) )    // Rotate is called every 3 bg scrolls, so when in the range of the water, start swimming
             hero->startSwimming();
+            
+        if( (hero->getX() + hero->getWidth() + bgIndex >= waterEnd) && (hero->getX() + hero->getWidth() + bgIndex < waterEnd +4) )
+            hero->stopSwimming();
 
         for( auto* w : activeWindows)       // Move all the other windows
         {
-            if( w->move(level) )    // Returns true if the top window changed
+            if(w->getWinType()==WinType::JAVELIN){
+        		int jXpos=w->getX();
+        		jXpos+=3;
+        		w->setX(jXpos);
+        		move_panel(panelLevel[w->getPanelIndex()], w->getX(), w->getY());	
+        		if(w->getX() + w->getWidth() >=screenWidth){
+        		   removeFromScreen(w);
+        		   return 0;
+		        } 
+	        }
+            if( w->getWinType() != WinType::ENEMY )
+            {
+                if( w->move(level) )    // Returns true if the top window changed (an animated non-enemy...don't think we have any)
+                    replace_panel(panelLevel[w->getPanelIndex()], w->getTop());
+            }
+            else                        // All enemies are animated
+            {
+                ((Enemy*)w)->move("left", level);
                 replace_panel(panelLevel[w->getPanelIndex()], w->getTop());
-            
+            }
+
             if(w->getX() < 0)    // If at the left edge, shrink or remove it.
             {
                 if(w->getX() + w->getWidth() <= 0)           
@@ -144,7 +201,6 @@ void Screen::playDeathScene()
     {   
         deathAnimation->rotate();                                                   // Changes the top window index
         replace_panel( panelLevel[ deathAnimation->getPanelIndex() ], deathAnimation->getTop() );
-        //show_panel( panelLevel[deathAnimation->getPanelIndex()] );
         move_panel( panelLevel[deathAnimation->getPanelIndex()], deathAnimation->getY(), deathAnimation->getX() );
 
     }
@@ -153,8 +209,16 @@ void Screen::playDeathScene()
 
 void Screen::putOnScreen(Window* image, int X, int Y)
 {
-    image->setX(X);
-    image->setY(Y);
+    if(image->getWinType()==WinType::JAVELIN){
+    	int heroX=hero->getX()+3;
+    	int heroY=hero->getY()+3;	
+    	image->setX(heroX);
+    	image->setY(heroY);
+    }
+    else{
+        image->setX(X);
+        image->setY(Y);
+    }
     move_panel( this->panelLevel[ image->getPanelIndex() ] , image->getY(), image->getX() );
     if( X < screenWidth )
         show_panel( this->panelLevel[ image->getPanelIndex() ] );
@@ -172,6 +236,9 @@ void Screen::removeFromScreen(Window* image)
             return;
         }
     }
+    this->panelLevel.erase( this->panelLevel.begin() + image->getPanelIndex());
+    delete image;
+    
 }
 
 void Screen::checkIfDead()
@@ -218,12 +285,23 @@ void Screen::checkIfDead()
             }
         }
         //else if( screenElement->getWinType() == WinType::WALL )
+        else if (screenElement -> getWinType() == WinType::JAVELIN){
+    	   for ( Window* anotherScreenElement :  activeWindows){
+	        if (anotherScreenElement->getWinType() == WinType::ENEMY){
+		        if(screenElement -> getX()>= anotherScreenElement ->getX()&&screenElement ->getY()<=anotherScreenElement->getY()+anotherScreenElement->getHeight()&&screenElement->getY()>=anotherScreenElement->getY()){
+		            removeFromScreen(anotherScreenElement);
+		            removeFromScreen(screenElement);
+		            //return;
+		        }
+	        }
+	       } 
+	    }
     }
 }
 
 
 
-void Screen::setHero(int x, int y )
+Hero* Screen::getHero(int x, int y )
 {
     // Load the main walking files
     vector<string> walkFiles = {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
@@ -237,12 +315,15 @@ void Screen::setHero(int x, int y )
     vector<string> jumpFiles = {"jump1.txt", "jump2.txt", "jump3.txt", "jump4.txt", "jump5.txt", "jump6.txt", "jump7.txt", "jump8.txt"};
     vector<string> swimFiles = {"swimming1.txt", "swimming2.txt", "swimming3.txt", "swimming4.txt", "swimming5.txt",
         "swimming6.txt", "swimming7.txt", "swimming8.txt"};
+    vector<string> upFiles = {"getUp1.txt", "getUp2.txt", "getUp3.txt"};
     for(auto fname : jumpFiles)
         heroWindow->appendOtherAnimation(fname, "jump", COLOR_PAIR(6));
     for(auto fname : swimFiles)
         heroWindow->appendOtherAnimation(fname, "swim", COLOR_PAIR(6));
-    heroWindow->saveScreenLimits(bgWindow->getWidth(), bgWindow->getHeight());
+    for(auto fname : upFiles)
+        heroWindow->appendOtherAnimation(fname, "climb", COLOR_PAIR(2));
     
+    heroWindow->saveScreenLimits(bgWindow->getWidth(), bgWindow->getHeight());
     
     heroWindow->setX(x);
     heroWindow->setY(y);
@@ -250,6 +331,7 @@ void Screen::setHero(int x, int y )
     show_panel(panelLevel[heroWindow->getPanelIndex()]);
     this->hero = heroWindow;
     wrefresh(heroWindow->getTop());
+    return heroWindow;
 }
 
 void Screen::addToPanelLevel(Window* image)     
@@ -269,43 +351,24 @@ Window* Screen::loadImages(vector<string> filenames, WinType type, int colors)
     
     // For multiple files (only happens for animations)
     for(unsigned int i = 1; i < filenames.size(); i++) 
-        baseWindow->appendAnimation( filenames[i], colors );
+        baseWindow->appendAnimation( filenames[i], colors);
 
-    //this->movingWindows.push_back(baseWindow);
     return baseWindow;
 }
 
 
-
-void Screen::moveHero(std::string direction)
+Enemy* Screen::loadEnemy(vector<string> filenames, int colors)
 {
-        hero->move(direction, level);
-        replace_panel( panelLevel[ hero->getPanelIndex() ], hero->getTop() );
-        move_panel( this->panelLevel[ hero->getPanelIndex() ], hero->getY(), hero->getX() );
-}
+    Enemy* base = new Enemy(filenames[0], 200, 200, WinType::ENEMY, colors);  // For some reason if I add it at 0, 0, it still shows up even with the hide_panel call below
+    addToPanelLevel(base);
+    hide_panel( this->panelLevel[ panelLevel.size()-1 ] );
+    
+    for(unsigned int i = 1; i < filenames.size(); i++) 
+        base->appendAnimation( filenames[i], colors);
+    
+    base->saveScreenLimits(bgWindow->getWidth(), bgWindow->getHeight());
 
-void Screen::moveWin(std::string direction, Window* W)
-{
-        if(direction == "up"){
-            W->setY(W->getY() - 1);
-        } else if (direction == "down"){
-            W->setY(W->getY() + 1);
-        } else if (direction == "left"){
-            W->setX(W->getX() - 1);
-        } else if (direction == "right"){
-            W->setX(W->getX() + 1);
-        } else {
-            //Do nothing...
-        }
-        
-        if(W->getWinType() == WinType::ENEMY){
-            W->move(0);
-            replace_panel( this->panelLevel[ W->getPanelIndex() ], W->getTop() );
-            move_panel( this->panelLevel[ W->getPanelIndex() ], W->getY(), W->getX());
-        } else {
-            move_panel( this->panelLevel[ W->getPanelIndex() ], W->getY(), W->getX());
-        }
-        
+    return base;
 }
 
 
@@ -317,12 +380,8 @@ void Screen::shrinkWindow(Window* win)
     WINDOW* smallerWindow = win->getSquishedWindow(win->getWidth() + win->getX());  // Because the x should be negative
 
     replace_panel( panelLevel[win->getPanelIndex()], smallerWindow );
-    // if( oldWidth < win->getWidth()-1 )  // Need to delete the old window on top if it's not in the Window's->win vector (memory leak)
-    // {
-    //     delwin(oldWindow);
-    //     cout << "Old width is: " << oldWidth << endl;
-    //     cout << "Width is: " << win->getWidth() << endl;
-    //     exit(0);
-    // }
+    if( oldWidth < win->getWidth()-1 ){  // Need to delete the old window on top if it's not in the Window's->win vector (memory leak)
+        delwin(oldWindow);
+    }
 }
 
