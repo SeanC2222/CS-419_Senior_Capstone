@@ -157,7 +157,7 @@ void readFunc(void* argsV){
     while(cliSock.isOpen() && !threadEnd){
         msg = "";
         timeout.tv_sec = 0;
-        timeout.tv_usec = (1000.0/60.0);
+        timeout.tv_usec = (10000);
         FD_SET(cliSock.getFD(), &sock);
 
         select(cliSock.getFD()+1, &sock, NULL, NULL, &timeout);
@@ -178,7 +178,7 @@ void readFunc(void* argsV){
                 ofs << msg << std::endl;
                 for(int i = 0; i < msg.size(); i++){
                     char ch = msg[i];
-                    ofs << "char: " << ch << std::endl;
+                    //ofs << "char: " << ch << std::endl;
                     int e;
 
                     if(ch == 'H'){
@@ -231,9 +231,9 @@ void readFunc(void* argsV){
                                 }
                             } else {
                                 if(ch){
-                                    e = 3;
+                                    e = 3; //Snake
                                 } else {
-                                    e = 4;
+                                    e = 4; //Croc
                                 }
                             }
                             if(enemy != NULL){
@@ -262,7 +262,7 @@ void readFunc(void* argsV){
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::WATER_ENEMY_TWO));
                                 }
                             }
-                            //main->putOnScreen(enemy, 150, 10);
+                            main->putOnScreen(enemy, main->getScreenWidth() + 20, 10);
                             continue;
                         case '0': //Up Encoding
                             if(enemy != NULL){
@@ -285,12 +285,12 @@ void readFunc(void* argsV){
                         }
                         if(ch % pits.size() == bigPit){
                             if(rand() % 2){
-                                main->putOnScreen(activePits[activePits.size()-1], 150, bigPitTop);
+                                main->putOnScreen(activePits[activePits.size()-1], main->getScreenWidth() + 20, bigPitTop);
                             } else {
-                                main->putOnScreen(activePits[activePits.size()-1], 150, bigPitBottom);
+                                main->putOnScreen(activePits[activePits.size()-1], main->getScreenWidth() + 20, bigPitBottom);
                             }
                         } else {
-                            main->putOnScreen(activePits[activePits.size()-1], 150, pitLoc[locNum++]);
+                            main->putOnScreen(activePits[activePits.size()-1], main->getScreenWidth() + 20, pitLoc[locNum++]);
                         }
                         if(locNum >= pitLoc.size()){
                             locNum = 0;
@@ -338,7 +338,7 @@ void readFunc(void* argsV){
     }
     
     if(!main->heroIsAlive()){
-        ofs << "HERO DIED!" << std::endl;   
+        ofs << "HERO DIED!" << (playerOne ? "1" : "2") << std::endl;
     }
 
     if(cliSock.isOpen()){
@@ -433,6 +433,7 @@ int menu(inetSock &cliSock, Screen* main)
     x=col/2-8;
     mvprintw(y,x,"press 'q' to quit\n");
     refresh();
+    
     std::string hsLabel = cliSock.readFromSock(512);
     hsLabel = "high score: " + hsLabel.substr(1, hsLabel.size());
     int hsY = row/2;
@@ -482,12 +483,24 @@ int menu(inetSock &cliSock, Screen* main)
                     endwin();
                     exit(-1);
                 } else {
-                    if(msg != "1" && msg != "2"){
-                        hsLabel = "high score: " + msg;
-                        attrset(COLOR_PAIR(color::MENU_THREE));
-                        mvprintw(hsY, hsX, hsLabel.c_str());
-                        refresh();
+                    for(int i = 0; i < msg.size(); i++){
+                        if(msg[i] == 'S'){
+                            i++;
+                            int scoreLen = msg.substr(i, msg.size()-i).find_first_not_of("1234567890");
+                            hsLabel = "high score: " + msg.substr(i, scoreLen);
+                            attrset(COLOR_PAIR(color::MENU_THREE));
+                            mvprintw(hsY, hsX, hsLabel.c_str());
+                            refresh();
+                            i+= scoreLen;
+                        }
+                        if(msg[i] == 'P'){
+                            i++;
+                            msg = msg.substr(i, msg.size()-i);
+                            i = 0;
+                            continue;
+                        }
                     }
+                    
                 }
             }
         }

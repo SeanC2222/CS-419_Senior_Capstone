@@ -119,6 +119,10 @@ bool Screen::heroIsAlive()
     return !this->dead;
 }
 
+int Screen::getScreenWidth(){
+    return this->screenWidth;
+}
+
 /* This function will be called at the refresh rate
    so it will wait for a character input, if it doesn't
    happen in REFRESH_RATE time, it just refreshes the screen
@@ -249,8 +253,7 @@ void Screen::putOnScreen(Window* image, int X, int Y)
     	int heroY=hero->getY()+3;	
     	image->setX(heroX);
     	image->setY(heroY);
-    }
-    else{
+    } else{
         image->setX(X);
         image->setY(Y);
     }

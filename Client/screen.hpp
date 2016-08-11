@@ -34,6 +34,7 @@ class Screen
         int getLevel();
         int getArea();
         bool heroIsAlive();
+        int getScreenWidth();
         
         int update();
         Window* loadImages(vector<string> filenames, WinType type, int colorScheme);
