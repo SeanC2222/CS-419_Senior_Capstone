@@ -204,6 +204,7 @@ std::pair<std::string, bool> parseArgs(std::vector<std::string> args){
 					std::cout << "endrund: Could not shut down process or PID not found" << std::endl;
 					return std::pair<std::string, bool>(args[i], false);
 				} else {
+				        usleep(50000);
 					std::cout << "endrund: Process shutdown successfully" << std::endl;
 					std::remove("logs/endrund/endrund.pid");
 					return std::pair<std::string, bool>(args[i], true);;
@@ -262,7 +263,7 @@ int checkLogsPath(){
 		char* buf = (char*)malloc(16*sizeof(char));
 		bzero(buf, 16*sizeof(char));
 
-		int n = read(hs, buf, sizeof(int));
+		int n = read(hs, buf, 16*sizeof(char));
 		if(n <= 0){
 			currentHighscore = 0;
 		} else {

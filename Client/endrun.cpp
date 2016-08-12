@@ -152,7 +152,6 @@ void readFunc(void* argsV){
     hero = main->getHero();
     bool jav = false;
     int javelinCount = 0;
-    std::ofstream ofs ("ofs.txt", std::ofstream::out | std::ofstream::app);
     while(cliSock.isOpen() && !threadEnd){
         msg = "";
         timeout.tv_sec = 0;
@@ -174,10 +173,8 @@ void readFunc(void* argsV){
                 sleep(2);
                 break;
             } else if(msg.size() > 0){
-                ofs << msg << std::endl;
                 for(int i = 0; i < msg.size(); i++){
                     char ch = msg[i];
-                    //ofs << "char: " << ch << std::endl;
                     int e;
 
                     if(ch == 'H'){
@@ -339,10 +336,6 @@ void readFunc(void* argsV){
         }
     }
     
-    if(!main->heroIsAlive()){
-        ofs << "HERO DIED!" << (playerOne ? "1" : "2") << std::endl;
-    }
-
     if(cliSock.isOpen()){
         cliSock.Close();
     }
@@ -353,7 +346,6 @@ void readFunc(void* argsV){
     if(enemy != NULL){
       delete enemy;
     }
-    ofs << "Returning..." << (playerOne ? "1" : "2") << std::endl;
     endwin();
     return;
 }
