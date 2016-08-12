@@ -135,6 +135,20 @@ void Window::showBgAt(int k, int area, int forestStart, int sandStart, int water
     if(nextArea > END){
         nextArea = ARENA;
     }
+    int nextAreaIndex = 0;
+
+    if(nextArea == FOREST){
+      nextAreaIndex = forestStart;
+    } else if (nextArea == BEACH){
+      nextAreaIndex = sandStart;
+    } else if (nextArea == SHALLOW_WATER){
+      nextAreaIndex = waterStartIdx;
+    } else if (nextArea == END){
+      nextAreaIndex = waterEndIdx;
+    } else {
+      nextAreaIndex = this->getWidth();
+    }
+
     wattron(bgFromFile, COLOR_PAIR(area));
 
     for (int r=0; r<screenYSize; r++)
@@ -145,11 +159,14 @@ void Window::showBgAt(int k, int area, int forestStart, int sandStart, int water
   	        line.erase(line.begin(), line.begin()+k);
 	        temp.erase(temp.begin()+k, temp.end());
 	        line.insert(line.length()-1,temp);
+	    wattroff(bgFromFile, COLOR_PAIR(nextArea));
             wattron(bgFromFile, COLOR_PAIR(area));
             for(int col=0; col < screenXSize; col++)
             {
-                if (col >= waterStartIdx-k)   
+
+                if (col >= nextAreaIndex-k)   
                 {
+		    wattroff(bgFromFile, COLOR_PAIR(area));
                     wattron(bgFromFile, COLOR_PAIR(nextArea));
                 }
                 mvwaddch(bgFromFile, r, col, line[col]);
@@ -292,7 +309,6 @@ void Window::rotate()
     // If the index points out of the vector, set to 0, otherwise, increment
     windowIndex = ( (unsigned int)this->windowIndex + 1 >= this->win.size() ? 0 : this->windowIndex + 1);
     this->top = win[ this->windowIndex ];                       // The current top window is now the next window in the array
-    wrefresh(this->top);
 }
 
 void Window::setPanelIndex(int PanelNum)
@@ -313,7 +329,7 @@ bool Window::move(int speed)
       rotate();
       topWinChanged = true;
   }
-  x -= 2*speed;
+  x -= speed;
   return topWinChanged;
 }
 

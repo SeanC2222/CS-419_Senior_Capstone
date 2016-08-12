@@ -23,13 +23,14 @@ class Screen
         Window* deathAnimation;
         int level, screenHeight, screenWidth;
         int deathFrame;
-        int bgIndex, forestStart, sandStart, waterStart, waterMid, waterEnd;
+        int bgIndex, forestStart, sandStart, waterStart, waterMid, waterEnd, levelEnd;
         int area, oldArea;
         void addToPanelLevel(Window* image);
         bool dead;
         
         
      public:
+        Screen();
         void init();
         int getLevel();
         int getArea();
@@ -43,6 +44,7 @@ class Screen
         void putOnScreen(Window* image, int X, int Y);
         Hero* getHero();
         Hero* setHeroColors(int colors);
+        bool moveEnemy(Enemy* e, std::string, int speed);
         void removeFromScreen(Window* image);
         void loadDeathAnimations();
         void checkIfDead();

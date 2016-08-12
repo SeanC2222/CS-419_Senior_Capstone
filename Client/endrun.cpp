@@ -23,7 +23,7 @@
 //Global Flag to tell threads to shutdown
 sig_atomic_t threadEnd = 0;
 sig_atomic_t currentHighscore = 0;
-
+sig_atomic_t currentScore = 0;
 //Signal handler for signals to shutdown
 void intAction(int sigNum){
    threadEnd = 1;
@@ -123,9 +123,7 @@ void readFunc(void* argsV){
     Window* javelin;
 
     Hero* hero = NULL;
-    Enemy* enemy = NULL;
-    std::vector<Window*> activePits;
-
+    vector<Enemy*> activeEnemies;
 
     setSignalActions(SIGTERM);
 
@@ -152,6 +150,7 @@ void readFunc(void* argsV){
     hero = main->getHero();
     bool jav = false;
     int javelinCount = 0;
+
     while(cliSock.isOpen() && !threadEnd){
         msg = "";
         timeout.tv_sec = 0;
@@ -173,12 +172,14 @@ void readFunc(void* argsV){
                 sleep(2);
                 break;
             } else if(msg.size() > 0){
+	        int area = main->getArea();
                 for(int i = 0; i < msg.size(); i++){
                     char ch = msg[i];
                     int e;
 
                     if(ch == 'H'){
                         ch = msg[++i];
+			hero = main->getHero();
                         switch(ch){
 
                         case 3: //Up Encoding
@@ -196,7 +197,17 @@ void readFunc(void* argsV){
                         case 'A':
                            //Throw javelin
                             if(!jav){
-			       javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN));
+			       if(area == ARENA){
+				 javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN_A));
+			       } else if (area == FOREST){
+				 javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN_F));
+			       } else if (area == BEACH){
+				 javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN_B));
+			       } else if (area == SHALLOW_WATER || area == DEEP_WATER){
+				 javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN_W));
+			       } else {
+				 javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN_A));
+			       }
 			       main->putOnScreen(javelin, hero->getX(), hero->getY());
 			       jav = true;
 			    } 
@@ -205,25 +216,25 @@ void readFunc(void* argsV){
                             hero->move("jump", main->getLevel());
                             continue;
                         }
-                    } else if (ch == 'E'){
+                   } else if (ch == 'E'){
                         ch = msg[++i];
                         switch(ch){
 
                         case 'S': //Spawn Encoding
                             ch = msg[++i] - 48;
-                            if(main->getArea() == color::ARENA){
+                            if(area == ARENA){
                                 if(ch){
                                     e = 0; //Wolf
                                 } else {
                                     e = 4; //Baddie
                                 }
-                            } else if (main->getArea() == color::FOREST){
+                            } else if (area == FOREST){
                                 if(ch){
                                     e = 1;  //Tiger
                                 } else {
                                     e = 2; //Snake
                                 }
-                            } else if (main->getArea() == color::BEACH){
+                            } else if (area == BEACH){
                                 if(ch){
                                     e = 1; //Tiger
                                 } else {
@@ -236,19 +247,20 @@ void readFunc(void* argsV){
                                     e = 3; //Croc
                                 }
                             }
-                            if(main->getArea() == ARENA){
+			    Enemy* enemy;
+                            if(area == ARENA){
                                 if(rand() % 2){
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::ARENA_ENEMY_ONE));
                                 } else {
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::ARENA_ENEMY_TWO));
                                 }
-                            } else if (main->getArea() == FOREST){
+                            } else if (area == FOREST){
                                 if(rand() % 2){
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::FOREST_ENEMY_ONE));
                                 } else {
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::FOREST_ENEMY_TWO));
                                 }
-                            } else if (main->getArea() == BEACH){
+                            } else if (area == BEACH){
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::BEACH_ENEMY));
                                 
                             } else {
@@ -259,51 +271,78 @@ void readFunc(void* argsV){
                                 }
                             }
                             main->putOnScreen(enemy, 200, 10);
+			    activeEnemies.push_back(enemy);
                             continue;
                         case '0': //Up Encoding
-                            if(enemy != NULL){
-                                enemy->move("up", 1);
-                            }
+			    for(int i = 0; i < activeEnemies.size(); i++){
+				 if(!main->moveEnemy(activeEnemies[i], "up", 1)){
+				      activeEnemies.erase(activeEnemies.begin() + i);
+				 }
+			    }
                             continue;
                         case '1': //Down Encoding
-                            if(enemy != NULL){
-                                enemy->move("down", 1);
+			    for(int i = 0; i < activeEnemies.size(); i++){
+				 if(!main->moveEnemy(activeEnemies[i], "down", 1)){
+				      activeEnemies.erase(activeEnemies.begin() + i);
+				 }
                             }
                             continue;
                         }
                     } else if (ch == 'P'){
                         ch = msg[++i] - 48; // '0' character is value 48; 48 corrects to 0
-                        int area = main->getArea();
+			Window* pit = NULL;
                         if(area == SHALLOW_WATER || area == DEEP_WATER){
-                           activePits.push_back(main->loadImages(pools[ch % pools.size()], WinType::PIT, COLOR_PAIR(color::POOL)));
+                           pit = main->loadImages(pools[ch % pools.size()], WinType::PIT, COLOR_PAIR(color::POOL));
                         } else if (area == FOREST){
-                            activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_F)));
+                           pit = main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_F));
                         } else if (area == BEACH){
-                            activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_B)));
+                           pit = main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_B));
                         } else {
-                           activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_A)));
+                           pit = main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_A));
                         }
-                        if(ch % pits.size() == bigPit){
-                            if(rand() % 2){
-                                main->putOnScreen(activePits[activePits.size()-1], 200, bigPitTop);
-                            } else {
-                                main->putOnScreen(activePits[activePits.size()-1], 200, bigPitBottom);
-                            }
-                        } else {
-                            main->putOnScreen(activePits[activePits.size()-1], 200, pitLoc[locNum++]);
-                        }
+			if(pit != NULL){
+			   if(ch % pits.size() == bigPit){
+			       if(rand() % 2){
+				   main->putOnScreen(pit, 200, bigPitTop);
+			       } else {
+				   main->putOnScreen(pit, 200, bigPitBottom);
+			       }
+			   } else {
+			       main->putOnScreen(pit, 200, pitLoc[locNum++]);
+			   }
+			}
                         if(locNum >= pitLoc.size()){
                             locNum = 0;
                         }
-                        while(activePits.size() > 3){
-                            activePits.erase(activePits.begin());
-                        }
 
                     } else if (ch == 'S'){
-                       currentHighscore = atoi(msg.c_str() + (++i));
+			std::string score;
+			for(int j = i+1; j < msg.size(); j++){
+			   if(isdigit(msg[j])){
+			      score += msg[j];
+			   } else {
+			      i = j-1;
+			      break;
+			   }
+			}
+			currentScore = atoi(score.c_str());
                         continue;
 
                    } else if (ch == 'K'){
+			msg = cliSock.readFromSock(512);
+		        std::string finalScore;
+			for(int j = 0; j < msg.size(); j++){
+			   if(msg[j] == 'S'){
+			      for(int k = j+1; k < msg.size(); k++){
+				 if(isdigit(msg[k])){
+				    finalScore += msg[k];
+				 } else {
+				    break;
+				 }
+			      }
+			   }
+			}
+				 
                         cliSock.Close();
                         threadEnd = 1;
                         break;
@@ -317,11 +356,12 @@ void readFunc(void* argsV){
                 exit(-1);
             }
         }
+
         refresh_f = std::chrono::high_resolution_clock::now();
         
         std::chrono::duration<double, std::milli> tDur = (refresh_f - refresh_s);
         
-        if(tDur.count() > (double)(1000.0/20.0) ){
+        if(tDur.count() > (double)(1000.0/30.0) ){
 	    if(++javelinCount > 40){
 	       jav = false;
 	       javelinCount = 0;
@@ -332,20 +372,14 @@ void readFunc(void* argsV){
                 threadEnd = 1;
                 break;
             }
-	    hero = main->getHero();
         }
+
     }
     
     if(cliSock.isOpen()){
         cliSock.Close();
     }
-    if(hero != NULL){
-      delete hero;
-    }
 
-    if(enemy != NULL){
-      delete enemy;
-    }
     endwin();
     return;
 }
@@ -435,8 +469,27 @@ int menu(inetSock &cliSock, Screen* main, int checkedHowTo)
     
      if(checkedHowTo == -1){
         hsLabel = cliSock.readFromSock(512);
-        int findS = hsLabel.find_first_not_of("1234567890", 1);
-        hsLabel = hsLabel.substr(1, findS-1);
+        if(hsLabel.size() == 0){
+	    attrset(COLOR_PAIR(color::MENU_ONE));
+	    mvprintw(row/2,col/2 -12,"No connection to server.\n");
+	    refresh();
+	    return 0;
+        }
+        std::string temp = "";
+        for(int i = 0; i < hsLabel.size(); i++){
+	    if(hsLabel[i] == 'S'){
+	       temp = "";
+	       for(int j = i+1; j < hsLabel.size(); j++){
+		  if(isdigit(hsLabel[j])){
+		     temp += hsLabel[j];
+		  } else {
+		     i = j-1;
+		     break;
+		  }
+	       }
+	    }
+        }
+        hsLabel = temp;
         currentHighscore = atoi(hsLabel.c_str());
         checkedHowTo = currentHighscore;
     } else {
@@ -444,6 +497,7 @@ int menu(inetSock &cliSock, Screen* main, int checkedHowTo)
     }
 
     hsLabel = "high score: " + std::to_string(currentHighscore);
+
     int hsY = row/2;
     int hsX = col * 3 / 4;
     attrset(COLOR_PAIR(color::MENU_THREE));
@@ -524,11 +578,11 @@ int menu(inetSock &cliSock, Screen* main, int checkedHowTo)
                 } else {
                     for(int i = 0; i < msg.size(); i++){
                         if(msg[i] == 'S'){
-                            i++;
-                            int scoreLen = msg.find_first_not_of("1234567890", i);
-                            if(scoreLen != -1){
-                                hsLabel = "high score: " + msg.substr(i, scoreLen-1);
-                            }
+			    std::string curScore = "";
+			    while(isdigit(msg[++i])){
+			       curScore += msg[i];
+			    }
+                            hsLabel = "high score: " + curScore;
                             attrset(COLOR_PAIR(color::MENU_THREE));
                             mvprintw(hsY, hsX, hsLabel.c_str());
                             refresh();
@@ -625,5 +679,20 @@ int main(int argc, char* argv[]){
     tWrite.join();
     free(args);
 
+    if(currentScore < 8500){
+       std::cout << "Try again! You can do better! Score: " << currentScore << std::endl;
+    } else if (currentScore >=8500 && currentScore < 14500){
+       std::cout << "You're getting there! Almost to the Beach! Score: " << currentScore << std::endl;
+    } else if (currentScore >= 14500 && currentScore < 16600){
+       std::cout << "Keep going! The water isn't too far off! Score: " << currentScore << std::endl;
+    } else if (currentScore >= 16600 && currentScore < 24500){
+       std::cout << "You're almost out of the water! Score: " << currentScore << std::endl;
+    } else if (currentScore >= 24500 && currentScore < 25000){
+       std::cout << "ALMOST TO LEVEL 2! Good job! Score: " << currentScore << std::endl;
+    } else if (currentScore >=25000 && currentScore < 37500){
+       std::cout << "You made it! Level 2! Score: " << currentScore << std::endl;
+    } else {
+       std::cout << "Holy cow! You made it to level " << main.getLevel() << "! Great job! Score: " << currentScore << std::endl;
+    }
     return 0;
 }

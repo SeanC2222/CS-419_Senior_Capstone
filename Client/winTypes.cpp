@@ -196,7 +196,6 @@ class Enemy : public Window
         this->setX(xPos);
         this->setY(yPos);
         rotate();            // Changes the top window index
-        wrefresh(this->getTop());
         return true;
     }
 
