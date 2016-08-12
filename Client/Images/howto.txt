@@ -1,0 +1,31 @@
+                                                                                            
+GOAL OF THE GAME
+The goal of the game is to run as far as possible while navigating through obstacles and enemies. 
+Game points will be based on how far a player is able to run. The farther a player runs, the more points player earns. 
+
+The game is designed to be controlled by two players simultaneously. 
+Player 1 will control the y axis and will have a special ability to throw javelins at the enemies encountered. 
+The javelins fly straight and if an enemy is hit by one, it will get defeated (no longer pose a threat to the player).
+Player 2 will control the x axis and will have a special ability to jump over obstacles and enemies.
+                                                                                        
+GAME CONTROLS
+Use the following keys to control the endless runner:
+
+Player 1
+Move up:       up arrow key
+Move down:     down arrow key
+
+Javelin (P1):  spacebar
+
+Player 2
+Move right:    right arrow key
+Move left:     left arrow key
+Jump(P2):      spacebar
+
+Quit game:     'q' key
+
+
+PRESS SPACEBAR TO GO BACK TO MAIN MENU
+
+
+
