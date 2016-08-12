@@ -273,6 +273,7 @@ void Screen::putOnScreen(Window* image, int X, int Y)
 void Screen::removeFromScreen(Window* image)
 {
     hide_panel( this->panelLevel[image->getPanelIndex()] );
+    del_panel( this->panelLevel[image->getPanelIndex()] );
     for(unsigned int i=0; i<activeWindows.size(); i++)
     {
         if(activeWindows[i] == image)

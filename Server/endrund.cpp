@@ -307,6 +307,8 @@ int buildServer(std::string portno){
 	buf1 = (char*)malloc(16 * sizeof(char));
 	buf2 = (char*)malloc(16 * sizeof(char));
 	
+        bzero(buf1, 16*sizeof(char));
+        bzero(buf2, 16*sizeof(char));
 	//Server Loop
 	while(1){
 		
