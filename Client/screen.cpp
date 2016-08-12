@@ -28,8 +28,13 @@ void Screen::init()
     init_pair((int)color::DEEP_WATER, COLOR_BLACK, COLOR_BLUE);          //6
     init_pair((int)color::SHALLOW_WATER, COLOR_WHITE, COLOR_BLUE);       //7
     init_pair((int)color::END, COLOR_MAGENTA, COLOR_YELLOW);             //9
+    //HERO COLORS
+    init_pair((int)color::HERO_ARENA, COLOR_BLACK, COLOR_YELLOW);
+    init_pair((int)color::HERO_FOREST, COLOR_BLACK, COLOR_GREEN);
+    init_pair((int)color::HERO_BEACH, COLOR_WHITE, COLOR_BLACK);
+    init_pair((int)color::HERO_SHALLOW_WATER, COLOR_BLACK, COLOR_BLUE);
+    init_pair((int)color::HERO_DEEP_WATER, COLOR_BLACK, COLOR_BLUE);
     //DETAIL COLORS
-    init_pair((int)color::HERO, COLOR_BLACK, COLOR_YELLOW);
     init_pair((int)color::DEATH_MAULED, COLOR_BLACK, COLOR_YELLOW);      //2
     init_pair((int)color::DEATH_FALL, COLOR_WHITE, COLOR_BLACK);         //5
     init_pair((int)color::DEATH_DROWN, COLOR_BLACK, COLOR_BLUE);         //6
@@ -37,16 +42,17 @@ void Screen::init()
     //SCORE COLORS
     init_pair((int)color::SCORE, COLOR_RED, COLOR_BLACK);                //10
     //ENEMY COLORS
-    init_pair((int)color::ARENA_ENEMY_ONE, COLOR_CYAN, COLOR_YELLOW);     //11
+    init_pair((int)color::ARENA_ENEMY_ONE, COLOR_BLACK, COLOR_YELLOW);     //11
     init_pair((int)color::ARENA_ENEMY_TWO, COLOR_RED, COLOR_YELLOW);      //3
-    init_pair((int)color::FOREST_ENEMY_ONE, COLOR_CYAN, COLOR_GREEN);     //19
+    init_pair((int)color::FOREST_ENEMY_ONE, COLOR_BLACK, COLOR_GREEN);     //19
     init_pair((int)color::FOREST_ENEMY_TWO, COLOR_RED, COLOR_GREEN);      //20
     init_pair((int)color::BEACH_ENEMY, COLOR_RED, COLOR_BLACK);           //10
     init_pair((int)color::WATER_ENEMY_ONE, COLOR_GREEN, COLOR_BLUE);     //12
     init_pair((int)color::WATER_ENEMY_TWO, COLOR_CYAN, COLOR_BLUE);      //13
     //PIT COLORS
-    init_pair((int)color::PIT_ONE, COLOR_MAGENTA, COLOR_YELLOW);         //9
-    init_pair((int)color::PIT_TWO, COLOR_WHITE, COLOR_YELLOW);           //4
+    init_pair((int)color::PIT_A, COLOR_MAGENTA, COLOR_YELLOW);         //9
+    init_pair((int)color::PIT_F, COLOR_WHITE, COLOR_GREEN);           //4
+    init_pair((int)color::PIT_B, COLOR_MAGENTA, COLOR_BLACK);           //4
     init_pair((int)color::POOL, COLOR_CYAN, COLOR_BLUE);                 //17
     //MENU PAIRS
     init_pair((int)color::MENU_ONE,COLOR_GREEN, COLOR_BLACK);             //14
@@ -61,6 +67,7 @@ void Screen::init()
     init_pair((int)color::GW_SIX, COLOR_BLACK, COLOR_BLUE);              //6
     init_pair((int)color::GW_SEVEN, COLOR_WHITE, COLOR_BLUE);            //7
     init_pair((int)color::GW_EIGHT, COLOR_RED, COLOR_BLUE);              //8
+
 
     cbreak();                   // Don't wait for user to hit 'enter'
     noecho();                   // Don't display user input on screen
@@ -343,11 +350,11 @@ Hero* Screen::getHero(int x, int y )
 {
     // Load the main walking files
     vector<string> walkFiles = {"gladiatorFacing.txt", "gladiatorStep.txt", "gladiatorBack.txt", "gladiatorStep.txt"};
-    Hero* heroWindow = new Hero(walkFiles[0], 200, 200, WinType::HERO, COLOR_PAIR(color::HERO));  // For some reason if I add it at 0, 0, it still shows up even with the hide_panel call below
+    Hero* heroWindow = new Hero(walkFiles[0], 200, 200, WinType::HERO, COLOR_PAIR(color::HERO_ARENA));  // For some reason if I add it at 0, 0, it still shows up even with the hide_panel call below
     addToPanelLevel(heroWindow);
     hide_panel( this->panelLevel[ panelLevel.size()-1 ] );
     for(unsigned int i = 1; i < walkFiles.size(); i++) 
-        heroWindow->appendAnimation( walkFiles[i], COLOR_PAIR(color::HERO) );
+        heroWindow->appendAnimation( walkFiles[i], COLOR_PAIR(color::HERO_ARENA) );
     
     // Load the other movements
     vector<string> jumpFiles = {"jump1.txt", "jump2.txt", "jump3.txt", "jump4.txt", "jump5.txt", "jump6.txt", "jump7.txt", "jump8.txt"};
@@ -359,7 +366,7 @@ Hero* Screen::getHero(int x, int y )
     for(auto fname : swimFiles)
         heroWindow->appendOtherAnimation(fname, "swim", COLOR_PAIR(color::GW_SIX));
     for(auto fname : upFiles)
-        heroWindow->appendOtherAnimation(fname, "climb", COLOR_PAIR(color::HERO));
+        heroWindow->appendOtherAnimation(fname, "climb", COLOR_PAIR(color::HERO_ARENA));
     
     heroWindow->saveScreenLimits(bgWindow->getWidth(), bgWindow->getHeight());
     

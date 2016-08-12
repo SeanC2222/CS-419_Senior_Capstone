@@ -262,7 +262,7 @@ void readFunc(void* argsV){
                                     enemy = main->loadEnemy(enemies[e], COLOR_PAIR(color::WATER_ENEMY_TWO));
                                 }
                             }
-                            main->putOnScreen(enemy, main->getScreenWidth() + 20, 10);
+                            main->putOnScreen(enemy, 200, 10);
                             continue;
                         case '0': //Up Encoding
                             if(enemy != NULL){
@@ -277,20 +277,24 @@ void readFunc(void* argsV){
                         }
                     } else if (ch == 'P'){
                         ch = msg[++i] - 48; // '0' character is value 48; 48 corrects to 0
-                        
-                        if(main->getArea() == SHALLOW_WATER || main->getArea() == DEEP_WATER){
+                        int area = main->getArea();
+                        if(area == SHALLOW_WATER || area == DEEP_WATER){
                            activePits.push_back(main->loadImages(pools[ch % pools.size()], WinType::PIT, COLOR_PAIR(color::POOL)));
+                        } else if (area == FOREST){
+                            activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_F)));
+                        } else if (area == BEACH){
+                            activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_B)));
                         } else {
-                           activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_ONE)));
+                           activePits.push_back(main->loadImages(pits[ch % pits.size()], WinType::PIT, COLOR_PAIR(color::PIT_A)));
                         }
                         if(ch % pits.size() == bigPit){
                             if(rand() % 2){
-                                main->putOnScreen(activePits[activePits.size()-1], main->getScreenWidth() + 20, bigPitTop);
+                                main->putOnScreen(activePits[activePits.size()-1], 200, bigPitTop);
                             } else {
-                                main->putOnScreen(activePits[activePits.size()-1], main->getScreenWidth() + 20, bigPitBottom);
+                                main->putOnScreen(activePits[activePits.size()-1], 200, bigPitBottom);
                             }
                         } else {
-                            main->putOnScreen(activePits[activePits.size()-1], main->getScreenWidth() + 20, pitLoc[locNum++]);
+                            main->putOnScreen(activePits[activePits.size()-1], 200, pitLoc[locNum++]);
                         }
                         if(locNum >= pitLoc.size()){
                             locNum = 0;
@@ -362,7 +366,7 @@ void writeFunc(void* argsV){
     inetSock cliSock(*(inetSock*)args[0]);
     bool playerOne = *(bool*)args[1];
     
-    timeout(1000000);
+    timeout(1000);
 
     std::string msg;    
     char ch;
@@ -383,14 +387,14 @@ void writeFunc(void* argsV){
 }
 
 //menu page
-int menu(inetSock &cliSock, Screen* main) 
+int menu(inetSock &cliSock, Screen* main, int checkedHowTo) 
 { 
-    attrset (COLOR_PAIR(color::MENU_ONE));                 
+    attrset (COLOR_PAIR(color::MENU_ONE));
     int row, col;
     getmaxyx(stdscr, row, col);
     int x=col/2-35;
     int y=row/2-12;
-    ifstream inputfile, inputfile1;
+    ifstream inputfile, inputfile1, inputfile2;
     inputfile.open("./Images/endlessrunner.txt");
     inputfile1.open("./Images/gladiatorFacing.txt");
     if(inputfile.is_open()&&inputfile1.is_open()){
@@ -401,7 +405,7 @@ int menu(inetSock &cliSock, Screen* main)
             mvprintw(y,x,line.c_str());
             y++;
         }
-        attrset(COLOR_PAIR(color::MENU_TWO));	
+        attrset(COLOR_PAIR(color::MENU_TWO));
         x=col/2-4;
         while(getline(inputfile1,line1)){
             mvprintw(y,x,line1.c_str());
@@ -433,45 +437,86 @@ int menu(inetSock &cliSock, Screen* main)
     x=col/2-8;
     mvprintw(y,x,"press 'q' to quit\n");
     refresh();
+    std::string hsLabel;
     
-    std::string hsLabel = cliSock.readFromSock(512);
-    hsLabel = "high score: " + hsLabel.substr(1, hsLabel.size());
+     if(checkedHowTo == -1){
+        hsLabel = cliSock.readFromSock(512);
+        int findS = hsLabel.find_first_not_of("1234567890", 1);
+        hsLabel = hsLabel.substr(1, findS-1);
+        currentHighscore = atoi(hsLabel.c_str());
+        checkedHowTo = currentHighscore;
+    } else {
+        hsLabel = std::to_string(checkedHowTo);
+    }
+
+    hsLabel = "high score: " + std::to_string(currentHighscore);
     int hsY = row/2;
     int hsX = col * 3 / 4;
     attrset(COLOR_PAIR(color::MENU_THREE));
     mvprintw(hsY, hsX, hsLabel.c_str());
     refresh();
-    
+
     attrset(COLOR_PAIR(color::MENU_ONE));
     wchar_t ch;
     while( (ch =getch() ) != 'q' && !threadEnd)
     {
-    if(ch==9) //to be updated later
-        return 0;
-    else if(ch==' '){
+    if(ch==9){ //if tab is pressed
+	    erase(); //clean up window before displaying how to page
+        x=0;
+        y=0;		
+        inputfile2.open("./Images/howto.txt");
+        if(inputfile2.is_open()){
+            string line2,line3;
+            attrset(COLOR_PAIR(7));
+            inputfile.close();
+            inputfile.open("./Images/endlessrunner.txt");	
+            while(getline(inputfile,line2)){
+     	        mvprintw(y,x,line2.c_str());
+    	        y++;
+            }
+            attrset(COLOR_PAIR(8));	
+            while(getline(inputfile2,line3)){
+    	        mvprintw(y,x,line3.c_str());
+    	        y++;
+            }
+        }
+        else
+	        mvprintw(y,x,"could not open files");
+
+       wchar_t ch;
+       while(ch =getch()) 
+       {
+          if(ch==' '){
+    	    erase();
+    	    return menu(cliSock, main, checkedHowTo);  //menu returns 1 for 'q' so if menu returned 1 so should this line
+          }
+       }
+     
+    } else if(ch==' '){
         std::string msg = "start";
         cliSock.writeToSock(msg);
         y++;
         x=col/2-12;
         mvprintw(y,x, "Waiting on other player...");
         refresh();
-        
+
         fd_set sock;
         FD_ZERO(&sock);
         struct timeval timeout;
-        
+
         while(msg != "1" && msg != "2"){
-            msg = "";
+
+             msg = "";
             timeout.tv_sec = 0;
             timeout.tv_usec = (100000.0);
             FD_SET(cliSock.getFD(), &sock);
-            
+
             if(threadEnd){
                 endwin();
                 exit(0);
             }
             select(cliSock.getFD()+1, &sock, NULL, NULL, &timeout);
-    
+
             if(FD_ISSET(cliSock.getFD(), &sock)){
                 msg = cliSock.readFromSock(512);
                 if(msg.size() == 0){
@@ -486,12 +531,13 @@ int menu(inetSock &cliSock, Screen* main)
                     for(int i = 0; i < msg.size(); i++){
                         if(msg[i] == 'S'){
                             i++;
-                            int scoreLen = msg.substr(i, msg.size()-i).find_first_not_of("1234567890");
-                            hsLabel = "high score: " + msg.substr(i, scoreLen);
+                            int scoreLen = msg.find_first_not_of("1234567890", i);
+                            if(scoreLen != -1){
+                                hsLabel = "high score: " + msg.substr(i, scoreLen-1);
+                            }
                             attrset(COLOR_PAIR(color::MENU_THREE));
                             mvprintw(hsY, hsX, hsLabel.c_str());
                             refresh();
-                            i+= scoreLen;
                         }
                         if(msg[i] == 'P'){
                             i++;
@@ -500,7 +546,7 @@ int menu(inetSock &cliSock, Screen* main)
                             continue;
                         }
                     }
-                    
+
                 }
             }
         }
@@ -534,7 +580,7 @@ int menu(inetSock &cliSock, Screen* main)
         } else if (threadEnd){
             return 0;
         }
-    }    
+    }
     return 0;
 }
 
@@ -562,7 +608,7 @@ int main(int argc, char* argv[]){
     setSignalActions(0);
     setSignalActions(SIGINT);
     
-    int playerNum = menu(cliSock, &main);
+    int playerNum = menu(cliSock, &main, -1);
     
     if(playerNum == 0){
         cliSock.Close();

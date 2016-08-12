@@ -345,79 +345,80 @@ int buildServer(std::string portno){
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, NULL, 0);
 		//If a connection was accepted...
 		if(fd != -1){
-			//If # of players is odd...
-			if(playerCount % 2 == 0){
-				//Store player in first players slot
-				players.first = fd;
-				playerCount++;
-				//Write validation to ensure p1 still connected
-				std::string chs = "S" + std::to_string(currentHighscore);
-				//Writes encoded HS to p1 (Sets p1 into menu input loop)
-				int n1 = write(players.first, chs.c_str(), chs.size());   //First HS
-				//If unsuccessful, remove P1
-				if(n1 == 0 || n1 == -1){
-					players.first =  0;
-					playerCount--;
-				}
-			} else {
-				std::cout << "Bufstate: " << buf1 << ", " << buf2 << std::endl;
-				//Store player in second players slot
-				players.second = fd;
-				playerCount++;
-				std::string chs = "S" + std::to_string(currentHighscore);
-				
-				//Write validation to both clients to ensure p1 and p2 still connected 
-				//if p1 connected, p1 is still in menu input loop or is polling in second HS loop waiting for player number or new scores;
-				//If not later read/writes fail
-				int n1 = write(players.first, chs.c_str(), chs.size());   //First HS
-				int n2 = write(players.second, chs.c_str(), chs.size());
-				
-				//If p1 can't write, set p2 as p1 (now in menu update loop) and look for a new p2
-				if(n1 == 0 || n1 == -1){
-					players.first = players.second;
-					players.second = 0;
-					playerCount--;
-					continue;
-				}
-				//When p1/p2 presses space, app sends "start" and enters HS loop parsing return messages for player numbers
-				if(strcmp(buf1, "start")){
-					std::cout << "Reading buf1" << std::endl;
-					n1 = read(players.first, buf1, 16*sizeof(char));	//Read for start
-				}
-				if(strcmp(buf2, "start")){
-					std::cout << "Reading buf2" << std::endl;
-					n2 = read(players.second, buf2, 16*sizeof(char));		//CTRL+C or Q will close cliSock
-				}
+            std::cout << playerCount << std::endl;
+            //If # of players is odd...
+            if(playerCount % 2 == 0){
+                //Store player in first players slot
+                players.first = fd;
+                playerCount++;
+                //Write validation to ensure p1 still connected
+                std::string chs = "S" + std::to_string(currentHighscore);
+                //Writes encoded HS to p1 (Sets p1 into menu input loop)
+                int n1 = write(players.first, chs.c_str(), chs.size());   //First HS
+                //If unsuccessful, remove P1
+                if(n1 == 0 || n1 == -1){
+                    players.first =  0;
+                    playerCount--;
+                }
+            } else {
+                std::cout << "Bufstate: " << buf1 << ", " << buf2 << std::endl;
+                //Store player in second players slot
+                players.second = fd;
+                playerCount++;
+                std::string chs = "S" + std::to_string(currentHighscore);
 
-				//If buf1 != buf2, check if players had a bad read
-				//If p2 closed or error, remove p2
-				if(n2 == 0 || n2 == -1){
-					std::cout << "p2 bad read: " << buf2 << std::endl;
-					players.second = 0;
-					bzero(buf2, 16*sizeof(char));
-					playerCount--;
-					continue;
-				}
-				//If p1 closed or error, remove p1 and look for new p2
-				if(n1 == 0 || n1 == -1){
-					std::cout << "p1 bad read: " << buf1 << std::endl;
-					players.first = players.second;
-					players.second = 0;
-					bzero(buf2, 16*sizeof(char));
-					playerCount--;
-					continue;
-				}
-				
-				//If both connected, and both players have pressed space, buf1 == buf2
-				if(std::string(buf1) == "start" && std::string(buf2) == "start"){ //If both start
-					//Write encoded player number to p1
-					chs = "P1";
-					n1 = write(players.first, chs.c_str(), chs.size());
-					//Write encoded player number to p2
-					chs = "P2";
+                //Write validation to both clients to ensure p1 and p2 still connected
+                //if p1 connected, p1 is still in menu input loop or is polling in second HS loop waiting for player number or new scores;
+                //If not later read/writes fail
+                int n1 = write(players.first, chs.c_str(), chs.size());   //First HS
+                n1 = write(players.first, chs.c_str(), chs.size());   //First HS
+                int n2 = write(players.second, chs.c_str(), chs.size());
+                n2 = write(players.second, chs.c_str(), chs.size());
+
+                //If p1 can't write, set p2 as p1 (now in menu update loop) and look for a new p2
+                if(n1 == 0 || n1 == -1){
+                    players.first = players.second;
+                    players.second = 0;
+                    playerCount--;
+                    continue;
+                }
+                //When p1/p2 presses space, app sends "start" and enters HS loop parsing return messages for player numbers
+               std::cout << "Reading buf1" << std::endl;
+               n1 = read(players.first, buf1, 16*sizeof(char)); //Read for start
+               std::cout << "Read " << buf1 << std::endl;
+               std::cout << "Reading buf2" << std::endl;
+               n2 = read(players.second, buf2, 16*sizeof(char));                //CTRL+C or Q will close cliSock
+               std::cout << "Read " << buf2 << std::endl;
+
+                //If buf1 != buf2, check if players had a bad read
+                //If p2 closed or error, remove p2
+                if(n2 == 0 || n2 == -1){
+                    std::cout << "p2 bad read: " << buf2 << std::endl;
+                    players.second = 0;
+                    bzero(buf2, 16*sizeof(char));
+                    playerCount--;
+                    continue;
+                }
+                //If p1 closed or error, remove p1 and look for new p2
+                if(n1 == 0 || n1 == -1){
+                    std::cout << "p1 bad read: " << buf1 << std::endl;
+                    players.first = players.second;
+                    players.second = 0;
+                    bzero(buf2, 16*sizeof(char));
+                    playerCount--;
+                    continue;
+                }
+
+                //If both connected, and both players have pressed space, buf1 == buf2
+                if(std::string(buf1) == "start" && std::string(buf2) == "start"){ //If both start
+                    //Write encoded player number to p1
+                    chs = "P1";
+                    n1 = write(players.first, chs.c_str(), chs.size());
+                    //Write encoded player number to p2
+                    chs = "P2";
 					n2 = write(players.second, chs.c_str(), chs.size());
-				} 
-					
+                }
+
 				bzero(buf1, 16*sizeof(char));
 				bzero(buf2, 16*sizeof(char));
 				//Store pair of players
