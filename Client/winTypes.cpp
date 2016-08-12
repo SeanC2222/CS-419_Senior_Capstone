@@ -17,6 +17,20 @@ class Hero : public Window
         jumping = false;
         climbingOut = false;
     }
+    bool getSwimming(){return this->swimming;}
+    bool getJumping(){return this->jumping;}
+    bool getClimbing(){return this->climbingOut;}
+   
+    int getWinNum(){return this->windowIndex;}
+    
+    void setSwimming(bool s){this->swimming = s;}
+    void setJumping(bool j){this->jumping = j;}
+    void setClimbing(bool c){this->climbingOut = c;}
+   
+    void setTopWindow(int winNum){
+	 this->windowIndex = winNum;
+	 this->top = win[winNum];
+    }
 
     void startSwimming()
     {
@@ -182,6 +196,7 @@ class Enemy : public Window
         this->setX(xPos);
         this->setY(yPos);
         rotate();            // Changes the top window index
+        wrefresh(this->getTop());
         return true;
     }
 
@@ -194,7 +209,7 @@ class Score : public Window
         Window("", xStart, yStart, type, colorScheme) {}
         
     void update(int score){
-        attrset(COLOR_PAIR(10));
+       wattron(this->getTop(), COLOR_PAIR(10));
        mvwprintw(this->getTop(), 0,0, std::to_string(score).c_str());
     }
     

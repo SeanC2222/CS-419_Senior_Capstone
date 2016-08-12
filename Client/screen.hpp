@@ -24,7 +24,7 @@ class Screen
         int level, screenHeight, screenWidth;
         int deathFrame;
         int bgIndex, forestStart, sandStart, waterStart, waterMid, waterEnd;
-        int area;
+        int area, oldArea;
         void addToPanelLevel(Window* image);
         bool dead;
         
@@ -41,7 +41,8 @@ class Screen
         Enemy* loadEnemy(vector<string> filenames, int colors);
         void playAnimation(Window* win, int x, int y);
         void putOnScreen(Window* image, int X, int Y);
-        Hero* getHero(int x, int y);
+        Hero* getHero();
+        Hero* setHeroColors(int colors);
         void removeFromScreen(Window* image);
         void loadDeathAnimations();
         void checkIfDead();

@@ -85,15 +85,15 @@ int main(int argc, char* argv[]){
 		//}
 		close(STDIN_FILENO);
 		
-		//std::streambuf *coutbuf = std::cout.rdbuf();
-		//std::cout.rdbuf(logs.rdbuf());
-		//std::streambuf *cerrbuf = std::cerr.rdbuf();
-		//std::cerr.rdbuf(logs.rdbuf());
+	        std::streambuf *coutbuf = std::cout.rdbuf();
+		std::cout.rdbuf(logs.rdbuf());
+		std::streambuf *cerrbuf = std::cerr.rdbuf();
+		std::cerr.rdbuf(logs.rdbuf());
 
 		buildServer(portno);
 
-//		std::cout.rdbuf(coutbuf);
-//		std::cerr.rdbuf(cerrbuf);
+		std::cout.rdbuf(coutbuf);
+		std::cerr.rdbuf(cerrbuf);
 		std::cout << "endrund: Current HighScore - " << currentHighscore << std::endl;
 		return 0;
 	} else {
@@ -363,7 +363,6 @@ int buildServer(std::string portno){
                     playerCount--;
                 }
             } else {
-                std::cout << "Bufstate: " << buf1 << ", " << buf2 << std::endl;
                 //Store player in second players slot
                 players.second = fd;
                 playerCount++;
@@ -385,12 +384,8 @@ int buildServer(std::string portno){
                     continue;
                 }
                 //When p1/p2 presses space, app sends "start" and enters HS loop parsing return messages for player numbers
-               std::cout << "Reading buf1" << std::endl;
                n1 = read(players.first, buf1, 16*sizeof(char)); //Read for start
-               std::cout << "Read " << buf1 << std::endl;
-               std::cout << "Reading buf2" << std::endl;
                n2 = read(players.second, buf2, 16*sizeof(char));                //CTRL+C or Q will close cliSock
-               std::cout << "Read " << buf2 << std::endl;
 
                 //If buf1 != buf2, check if players had a bad read
                 //If p2 closed or error, remove p2
@@ -479,7 +474,7 @@ void playGame(std::pair<int,int> player) {
 
 	struct timeval timeout;
 
-	sleep(4);
+	sleep(2);
 	
     std::chrono::high_resolution_clock::time_point score1 = std::chrono::high_resolution_clock::now();
     std::chrono::high_resolution_clock::time_point enemy_life_s, enemy_s, enemy_f, pit_s, pit_f;
@@ -506,12 +501,15 @@ void playGame(std::pair<int,int> player) {
 			if (p1msg == "H "){
 				player1.writeToSock("HA");
 				player2.writeToSock("HA");
+			        std::cout << "P1: HA" << std::endl;
 			} else if(p1msg.size() == 1){
 				player1.Close();
 				player2.writeToSock("KILL");
+			        std::cout << "Player 1 disconnect..." << std::endl;
 			} else {
 				player1.writeToSock(p1msg);
 				player2.writeToSock(p1msg);
+			        std::cout << "P1: " << p1msg << std::endl;
 			}
 		}
 		
@@ -520,12 +518,15 @@ void playGame(std::pair<int,int> player) {
 			if (p2msg == "H "){
 				player1.writeToSock("HJ");
 				player2.writeToSock("HJ");
+			        std::cout << "P2: HJ" << std::endl;
 			} else if(p2msg.size() == 1){
 				player2.Close();
 				player1.writeToSock("KILL");
+			        std::cout << "Player 2 disconnect..." << std::endl;
 			} else {
 				player1.writeToSock(p2msg);
 				player2.writeToSock(p2msg);
+			        std::cout << "P2: " << p2msg << std::endl;
 			}
 		}
 		

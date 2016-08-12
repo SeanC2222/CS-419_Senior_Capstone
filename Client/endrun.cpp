@@ -120,14 +120,12 @@ void readFunc(void* argsV){
     std::vector< std::vector<std::string> > pits = getPitFiles();
     int bigPit = 4;
     vector<string>javelinFile{"javelin.txt"};
-    Window * javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN));
-    
+    Window* javelin;
+
     Hero* hero = NULL;
     Enemy* enemy = NULL;
     std::vector<Window*> activePits;
 
-    Score* curScore = new Score("", cols-12, 2, WinType::SCORE, COLOR_PAIR(color::SCORE));
-    main->putOnScreen(curScore, cols-12, 1);
 
     setSignalActions(SIGTERM);
 
@@ -150,9 +148,10 @@ void readFunc(void* argsV){
     std::chrono::high_resolution_clock::time_point refresh_s, refresh_f, enemy_s, enemy_f;
     refresh_s = std::chrono::high_resolution_clock::now();
 
-    hero = main->getHero(10, 10);
     main->update();
-
+    hero = main->getHero();
+    bool jav = false;
+    int javelinCount = 0;
     std::ofstream ofs ("ofs.txt", std::ofstream::out | std::ofstream::app);
     while(cliSock.isOpen() && !threadEnd){
         msg = "";
@@ -192,14 +191,18 @@ void readFunc(void* argsV){
                             hero->move("down", 1);
                             continue;
                         case 4: //Left Encoding
-                            hero->move("left", 1);
+                            hero->move("left", main->getLevel());
                             continue;
                         case 5: //Right Encoding
-                            hero->move("right", 1);
+                            hero->move("right", main->getLevel());
                             continue;
                         case 'A':
                            //Throw javelin
-                            main->putOnScreen(javelin, hero->getX(), hero->getY());
+                            if(!jav){
+			       javelin = main->loadImages(javelinFile, WinType::JAVELIN, COLOR_PAIR(color::JAVELIN));
+			       main->putOnScreen(javelin, hero->getX(), hero->getY());
+			       jav = true;
+			    } 
                             continue;
                         case 'J':
                             hero->move("jump", main->getLevel());
@@ -221,24 +224,20 @@ void readFunc(void* argsV){
                                 if(ch){
                                     e = 1;  //Tiger
                                 } else {
-                                    e = 3; //Snake
+                                    e = 2; //Snake
                                 }
                             } else if (main->getArea() == color::BEACH){
                                 if(ch){
                                     e = 1; //Tiger
                                 } else {
-                                    e = 4; //Croc
+                                    e = 3; //Croc
                                 }
                             } else {
                                 if(ch){
-                                    e = 3; //Snake
+                                    e = 2; //Snake
                                 } else {
-                                    e = 4; //Croc
+                                    e = 3; //Croc
                                 }
-                            }
-                            if(enemy != NULL){
-                                delete enemy;
-                                enemy = NULL;
                             }
                             if(main->getArea() == ARENA){
                                 if(rand() % 2){
@@ -304,17 +303,10 @@ void readFunc(void* argsV){
                         }
 
                     } else if (ch == 'S'){
-                        currentHighscore = atoi(msg.c_str() + (++i));
-                        attrset(COLOR_PAIR(color::SCORE));
-                        mvprintw(2, cols-15, msg.c_str()+i);
-                        int nextMsg = std::string(msg.c_str()+i).find_first_not_of("1234567890");
-                        if(nextMsg > 0){
-                           i += nextMsg;
-                        } else {
-                           i += msg.size() - i;
-                        }
+                       currentHighscore = atoi(msg.c_str() + (++i));
                         continue;
-                    } else if (ch == 'K'){
+
+                   } else if (ch == 'K'){
                         cliSock.Close();
                         threadEnd = 1;
                         break;
@@ -333,11 +325,17 @@ void readFunc(void* argsV){
         std::chrono::duration<double, std::milli> tDur = (refresh_f - refresh_s);
         
         if(tDur.count() > (double)(1000.0/20.0) ){
+	    if(++javelinCount > 40){
+	       jav = false;
+	       javelinCount = 0;
+	    }
+	    
             refresh_s = refresh_f;
             if(main->update()){
                 threadEnd = 1;
                 break;
             }
+	    hero = main->getHero();
         }
     }
     
@@ -372,6 +370,10 @@ void writeFunc(void* argsV){
     char ch;
     while(cliSock.isOpen() && !threadEnd){
         msg = "";
+        if (ch == 'q'){
+	    threadEnd = 1;
+	    cliSock.Close();
+        }
         if( (ch = getch()) != ERR){
             if(playerOne && (ch == 2 || ch == 3 || ch == ' ')){
                 msg += ch;

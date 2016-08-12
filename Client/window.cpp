@@ -6,7 +6,7 @@
 
 Window::Window(int height, int width, int xStart, int yStart) : height(height), width(width), x(xStart), y(yStart)
 {
-    this->win.push_back( newwin(height, width, x, y) );
+    this->win.push_back( newwin(height, width, y, x) );
     this->windowIndex = 0;
     this->top = this->win[0];
     this->type = WinType::BACKGROUND;
@@ -129,15 +129,14 @@ void Window::showBgAt(int k, int area, int forestStart, int sandStart, int water
     getmaxyx(stdscr, screenYSize, screenXSize);
     
     WINDOW* bgFromFile = this->getTop();
-    bool screenAllWater = ( k >= waterStartIdx && k <= waterEndIdx );
-
+    
     // Here we would put -if only water level on screen, use COLOR_SCHEME(7)
     int nextArea = area+1;
     if(nextArea > END){
         nextArea = ARENA;
     }
     wattron(bgFromFile, COLOR_PAIR(area));
-    
+
     for (int r=0; r<screenYSize; r++)
     { // Get the file and put it in the window
         if( getline(inputFile, line) )
@@ -146,34 +145,17 @@ void Window::showBgAt(int k, int area, int forestStart, int sandStart, int water
   	        line.erase(line.begin(), line.begin()+k);
 	        temp.erase(temp.begin()+k, temp.end());
 	        line.insert(line.length()-1,temp);
-	        wattroff(bgFromFile, COLOR_PAIR(nextArea));
             wattron(bgFromFile, COLOR_PAIR(area));
             for(int col=0; col < screenXSize; col++)
             {
                 if (col >= waterStartIdx-k)   
                 {
-                    wattroff(bgFromFile, COLOR_PAIR(area));
                     wattron(bgFromFile, COLOR_PAIR(nextArea));
                 }
                 mvwaddch(bgFromFile, r, col, line[col]);
             }
         }
     }
-    
-    if(k < forestStart)
-        wattroff(bgFromFile, COLOR_PAIR(color::ARENA));
-    else if(k >= forestStart && k < sandStart)
-        wattroff(bgFromFile, COLOR_PAIR(color::FOREST));
-    else if(k >= sandStart && k < waterStartIdx )
-        wattroff(bgFromFile, COLOR_PAIR(color::BEACH));
-    else if(k >= waterStartIdx && k < waterEndIdx){
-        wattroff(bgFromFile, COLOR_PAIR(color::SHALLOW_WATER));
-    } else
-        wattroff(bgFromFile, COLOR_PAIR(color::END));
-        
-   
-
-    wrefresh(bgFromFile);
     inputFile.close();
 }
 
@@ -310,6 +292,7 @@ void Window::rotate()
     // If the index points out of the vector, set to 0, otherwise, increment
     windowIndex = ( (unsigned int)this->windowIndex + 1 >= this->win.size() ? 0 : this->windowIndex + 1);
     this->top = win[ this->windowIndex ];                       // The current top window is now the next window in the array
+    wrefresh(this->top);
 }
 
 void Window::setPanelIndex(int PanelNum)
